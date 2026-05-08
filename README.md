@@ -151,7 +151,7 @@ func start
 
 ## 👨‍💻 Author
 
-**Downey** — Computer Science Student at UiTM  
+**Downey** — Bachelor of Science Statistics (Hons.) Student at UiTM  
 [![GitHub](https://img.shields.io/badge/GitHub-Downey112-181717?logo=github)](https://github.com/Downey112)
 
 ---
