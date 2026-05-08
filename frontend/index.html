@@ -2,12 +2,115 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+
+    <!-- Primary Meta -->
+    <title>WealthWatch — Cloud Personal Finance Dashboard</title>
+    <meta name="description" content="Track income and expenses, visualize spending trends, and manage your finances — all synced to the cloud in real time." />
+    <meta name="keywords" content="finance tracker, expense manager, budget app, personal finance, cloud dashboard" />
+    <meta name="author" content="Downey112" />
+    <meta name="theme-color" content="#6366f1" />
+
+    <!-- Open Graph (looks great when shared on LinkedIn/WhatsApp) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lemon-cliff-0776cbb00.7.azurestaticapps.net" />
+    <meta property="og:title" content="WealthWatch — Cloud Personal Finance Dashboard" />
+    <meta property="og:description" content="A full-stack cloud-native finance tracker built on Microsoft Azure. Built with React, Python, and Azure Functions." />
+    <meta property="og:image" content="https://lemon-cliff-0776cbb00.7.azurestaticapps.net/og-image.png" />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="WealthWatch — Cloud Finance Dashboard" />
+    <meta name="twitter:description" content="Track income, expenses, and visualize your finances. Built on Azure." />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+      /* Prevent flash of unstyled content */
+      html { background-color: #0f172a; }
+
+      /* Loading spinner shown before React mounts */
+      #initial-loader {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #0f172a;
+        gap: 1rem;
+        font-family: 'Inter', sans-serif;
+        color: #94a3b8;
+        font-size: 0.95rem;
+        z-index: 9999;
+      }
+      .loader-icon {
+        font-size: 2.5rem;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      .loader-bar {
+        width: 200px;
+        height: 3px;
+        background: #1e293b;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .loader-bar-fill {
+        height: 100%;
+        width: 40%;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        border-radius: 999px;
+        animation: slide 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.15); }
+      }
+      @keyframes slide {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(350%); }
+      }
+    </style>
   </head>
+
   <body>
+    <!-- Loading screen before React hydrates -->
+    <div id="initial-loader">
+      <div class="loader-icon">💰</div>
+      <div>Loading WealthWatch...</div>
+      <div class="loader-bar">
+        <div class="loader-bar-fill"></div>
+      </div>
+    </div>
+
     <div id="root"></div>
+
     <script type="module" src="/src/main.jsx"></script>
+
+    <!-- Remove loader once React mounts -->
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const observer = new MutationObserver(() => {
+          const root = document.getElementById('root');
+          if (root && root.children.length > 0) {
+            const loader = document.getElementById('initial-loader');
+            if (loader) {
+              loader.style.opacity = '0';
+              loader.style.transition = 'opacity 0.3s ease';
+              setTimeout(() => loader.remove(), 300);
+            }
+            observer.disconnect();
+          }
+        });
+        observer.observe(document.getElementById('root'), { childList: true });
+      });
+    </script>
   </body>
 </html>
