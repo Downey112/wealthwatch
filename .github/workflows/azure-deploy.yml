@@ -1,0 +1,3 @@
+app_location: "/frontend"
+          api_location: ""
+          output_location: "dist"
