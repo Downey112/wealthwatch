@@ -1,122 +1,92 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React from 'react';
+import './App.css';
 
 function App() {
-  const [count, setCount] = useState(0)
+  // Mock data for our aesthetic chart bars
+  const chartData = [
+    { height: '40%', type: 'green' },
+    { height: '60%', type: 'red' },
+    { height: '30%', type: 'green' },
+    { height: '80%', type: 'green' },
+    { height: '50%', type: 'red' },
+    { height: '70%', type: 'green' },
+    { height: '40%', type: 'red' },
+    { height: '90%', type: 'green' },
+    { height: '100%', type: 'green' },
+  ];
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-container">
+      {/* NAVBAR */}
+      <nav className="navbar">
+        <div className="logo">
+          Wealth<span className="logo-accent">Watch</span>
         </div>
-        <div>
-          <h1>Get started</h1>
+        <div className="nav-links">
+          <span className="active">DASHBOARD</span>
+          <span>TRANSACTIONS</span>
+          <span>ANALYTICS</span>
+        </div>
+        <button className="launch-btn">LAUNCH APP →</button>
+      </nav>
+
+      {/* HERO SECTION */}
+      <main className="hero-section">
+        
+        {/* Left Side: Typography */}
+        <div className="hero-text">
+          <div className="label">CLOUD-NATIVE FINANCE</div>
+          <h1>
+            Track every<br />
+            <i>ringgit,</i><br />
+            own your<br />
+            future
+          </h1>
           <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+            A full-stack personal finance dashboard built on Microsoft Azure. 
+            Visualize income, expenses and net worth — synced to the cloud in real time.
           </p>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
 
-      <div className="ticks"></div>
+        {/* Right Side: The Dashboard Card */}
+        <div className="dashboard-widget">
+          <div className="widget-header">
+            <span className="widget-title">NET OVERVIEW</span>
+            <div className="live-badge">
+              <span className="dot"></span> LIVE
+            </div>
+          </div>
+          
+          <h2 className="balance-amount">RM 2,480.00</h2>
+          <div className="balance-trend">↑ +12.4% this month</div>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+          {/* Mini CSS Bar Chart */}
+          <div className="chart-bars">
+            {chartData.map((bar, index) => (
+              <div 
+                key={index} 
+                className={`bar ${bar.type}`} 
+                style={{ height: bar.height }}
+              ></div>
+            ))}
+          </div>
+
+          {/* Bottom Stats */}
+          <div className="widget-stats">
+            <div className="stat-box">
+              <div className="stat-label">INCOME</div>
+              <div className="stat-value income">RM 5,200</div>
+            </div>
+            <div className="stat-box">
+              <div className="stat-label">EXPENSES</div>
+              <div className="stat-value expense">RM 2,720</div>
+            </div>
+          </div>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+        
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
