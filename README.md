@@ -8,7 +8,7 @@
 
 > A full-stack, cloud-native personal finance tracker built and deployed on Microsoft Azure. Track income and expenses, visualize spending trends, and manage your finances — all synced to the cloud in real time.
 
-🌐 **Live Demo:** [https://lemon-cliff-0776cbb00.7.azurestaticapps.net](https://lemon-cliff-0776cbb00.7.azurestaticapps.net)
+🌐 **Live Demo:** [https://lively-water-0227bbc00.7.azurestaticapps.net](https://lively-water-0227bbc00.7.azurestaticapps.net)
 
 ---
 
