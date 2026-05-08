@@ -4,39 +4,31 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <!-- Primary Meta -->
-    <title>WealthWatch — Cloud Personal Finance Dashboard</title>
-    <meta name="description" content="Track income and expenses, visualize spending trends, and manage your finances — all synced to the cloud in real time." />
-    <meta name="keywords" content="finance tracker, expense manager, budget app, personal finance, cloud dashboard" />
-    <meta name="author" content="Downey112" />
-    <meta name="theme-color" content="#6366f1" />
-
-    <!-- Open Graph (looks great when shared on LinkedIn/WhatsApp) -->
-    <meta property="og:type" content="website" />
+    <title>WealthWatch — Track Every Ringgit, Own Your Future</title>
+    <meta name="description" content="A cloud-native personal finance dashboard built on Microsoft Azure. Built by Luqman Syahrulnizam." />
+    <meta name="author" content="Luqman Syahrulnizam" />
+    <meta name="theme-color" content="#bef264" /> <meta property="og:type" content="website" />
     <meta property="og:url" content="https://lemon-cliff-0776cbb00.7.azurestaticapps.net" />
-    <meta property="og:title" content="WealthWatch — Cloud Personal Finance Dashboard" />
-    <meta property="og:description" content="A full-stack cloud-native finance tracker built on Microsoft Azure. Built with React, Python, and Azure Functions." />
+    <meta property="og:title" content="WealthWatch — Personal Finance Dashboard" />
+    <meta property="og:description" content="Visualize income, expenses, and net worth in real-time. Built with React 19, Python 3.11, and Azure SQL." />
     <meta property="og:image" content="https://lemon-cliff-0776cbb00.7.azurestaticapps.net/og-image.png" />
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="WealthWatch — Cloud Finance Dashboard" />
-    <meta name="twitter:description" content="Track income, expenses, and visualize your finances. Built on Azure." />
+    <link rel="me" href="https://www.linkedin.com/in/luqman-syahrulnizam-7178b827b" />
+    <link rel="me" href="https://www.instagram.com/solacityluq" />
+    <link rel="me" href="https://www.tiktok.com/@luqthman" />
 
-    <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
 
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
     <style>
-      /* Prevent flash of unstyled content */
-      html { background-color: #0f172a; }
+      /* Financial Dark Theme - Pitch Black Background */
+      html { background-color: #000000; }
+      body { margin: 0; padding: 0; }
 
-      /* Loading spinner shown before React mounts */
+      /* The Loader - Matching your Lime/Black Screenshot */
       #initial-loader {
         position: fixed;
         inset: 0;
@@ -44,35 +36,49 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        background: #0f172a;
-        gap: 1rem;
+        background: #000000;
+        gap: 1.5rem;
         font-family: 'Inter', sans-serif;
-        color: #94a3b8;
-        font-size: 0.95rem;
         z-index: 9999;
       }
+
       .loader-icon {
-        font-size: 2.5rem;
-        animation: pulse 1.5s ease-in-out infinite;
+        font-size: 3rem;
+        filter: drop-shadow(0 0 10px rgba(190, 242, 100, 0.3));
+        animation: pulse 2s ease-in-out infinite;
       }
+
+      .loader-text {
+        color: #ffffff;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        opacity: 0.8;
+      }
+
       .loader-bar {
-        width: 200px;
-        height: 3px;
-        background: #1e293b;
-        border-radius: 999px;
+        width: 180px;
+        height: 2px;
+        background: #1a1a1a;
+        border-radius: 99px;
         overflow: hidden;
       }
+
       .loader-bar-fill {
         height: 100%;
-        width: 40%;
-        background: linear-gradient(90deg, #6366f1, #8b5cf6);
-        border-radius: 999px;
-        animation: slide 1.2s ease-in-out infinite;
+        width: 30%;
+        background: #bef264; /* Lime green from your Launch button */
+        box-shadow: 0 0 15px rgba(190, 242, 100, 0.5);
+        border-radius: 99px;
+        animation: slide 1.5s ease-in-out infinite;
       }
+
       @keyframes pulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.15); }
+        0%, 100% { transform: scale(1); opacity: 0.8; }
+        50% { transform: scale(1.1); opacity: 1; }
       }
+
       @keyframes slide {
         0% { transform: translateX(-100%); }
         100% { transform: translateX(350%); }
@@ -81,10 +87,9 @@
   </head>
 
   <body>
-    <!-- Loading screen before React hydrates -->
     <div id="initial-loader">
       <div class="loader-icon">💰</div>
-      <div>Loading WealthWatch...</div>
+      <div class="loader-text">Initializing WealthWatch</div>
       <div class="loader-bar">
         <div class="loader-bar-fill"></div>
       </div>
@@ -94,22 +99,21 @@
 
     <script type="module" src="/src/main.jsx"></script>
 
-    <!-- Remove loader once React mounts -->
     <script>
-      window.addEventListener('DOMContentLoaded', () => {
+      window.addEventListener('load', () => {
+        const root = document.getElementById('root');
         const observer = new MutationObserver(() => {
-          const root = document.getElementById('root');
-          if (root && root.children.length > 0) {
+          if (root.children.length > 0) {
             const loader = document.getElementById('initial-loader');
             if (loader) {
               loader.style.opacity = '0';
-              loader.style.transition = 'opacity 0.3s ease';
-              setTimeout(() => loader.remove(), 300);
+              loader.style.transition = 'opacity 0.4s ease-out';
+              setTimeout(() => loader.remove(), 400);
             }
             observer.disconnect();
           }
         });
-        observer.observe(document.getElementById('root'), { childList: true });
+        observer.observe(root, { childList: true });
       });
     </script>
   </body>
