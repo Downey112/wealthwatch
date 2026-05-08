@@ -7,11 +7,13 @@
     <title>WealthWatch — Track Every Ringgit, Own Your Future</title>
     <meta name="description" content="A cloud-native personal finance dashboard built on Microsoft Azure. Built by Luqman Syahrulnizam." />
     <meta name="author" content="Luqman Syahrulnizam" />
-    <meta name="theme-color" content="#bef264" /> <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://lemon-cliff-0776cbb00.7.azurestaticapps.net" />
+    <meta name="theme-color" content="#bef264" /> 
+    
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://lively-water-0227bbc00.7.azurestaticapps.net" />
     <meta property="og:title" content="WealthWatch — Personal Finance Dashboard" />
     <meta property="og:description" content="Visualize income, expenses, and net worth in real-time. Built with React 19, Python 3.11, and Azure SQL." />
-    <meta property="og:image" content="https://lemon-cliff-0776cbb00.7.azurestaticapps.net/og-image.png" />
+    <meta property="og:image" content="https://lively-water-0227bbc00.7.azurestaticapps.net/og-image.png" />
 
     <link rel="me" href="https://www.linkedin.com/in/luqman-syahrulnizam-7178b827b" />
     <link rel="me" href="https://www.instagram.com/solacityluq" />
@@ -102,18 +104,29 @@
     <script>
       window.addEventListener('load', () => {
         const root = document.getElementById('root');
+        
+        // 1. The React Sensor
         const observer = new MutationObserver(() => {
-          if (root.children.length > 0) {
+          if (root.childNodes.length > 0) { // <-- Changed to childNodes
+            hideLoader();
+            observer.disconnect();
+          }
+        });
+        observer.observe(root, { childList: true });
+
+        // 2. The Failsafe (Force hide after 4 seconds)
+        setTimeout(() => {
+            hideLoader();
+        }, 4000);
+
+        function hideLoader() {
             const loader = document.getElementById('initial-loader');
             if (loader) {
               loader.style.opacity = '0';
               loader.style.transition = 'opacity 0.4s ease-out';
               setTimeout(() => loader.remove(), 400);
             }
-            observer.disconnect();
-          }
-        });
-        observer.observe(root, { childList: true });
+        }
       });
     </script>
   </body>
