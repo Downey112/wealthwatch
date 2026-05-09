@@ -1,137 +1,122 @@
-import { useState, useEffect } from "react";
-import Dashboard from "./components/Dashboard";
-import TransactionForm from "./components/TransactionForm";
-import TransactionTable from "./components/TransactionTable";
-import "./App.css";
-
-// Use the environment variable, or fallback to your specific Azure URL
-const API_BASE = import.meta.env.VITE_API_URL || "https://wealthwatch-api-luqman.azurewebsites.net/api";
-const DEMO_USER = "wealthadmin"; // Matches the user we created in the database!
+import { useState } from 'react'
+import reactLogo from './assets/react.svg'
+import viteLogo from './assets/vite.svg'
+import heroImg from './assets/hero.png'
+import './App.css'
 
 function App() {
-  const [transactions, setTransactions] = useState([]);
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [count, setCount] = useState(0)
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // 1. Updated with API_BASE
-      const [txRes, sumRes] = await Promise.all([
-        fetch(`${API_BASE}/transactions?user=${DEMO_USER}`),
-        fetch(`${API_BASE}/summary?user=${DEMO_USER}`)
-      ]);
-
-      if (!txRes.ok) throw new Error(`Transactions API: ${txRes.status}`);
-      if (!sumRes.ok) throw new Error(`Summary API: ${sumRes.status}`);
-
-      const txData = await txRes.json();
-      const sumData = await sumRes.json();
-      setTransactions(txData);
-      setSummary(sumData);
-    } catch (err) {
-      console.error("API error:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchData(); }, []);
-
-  const handleAdd = async (transaction) => {
-    try {
-      // 2. Updated with API_BASE
-      const res = await fetch(`${API_BASE}/transactions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...transaction, user: DEMO_USER })
-      });
-      if (!res.ok) throw new Error(`Add failed: ${res.status}`);
-      await fetchData();
-    } catch (err) {
-      alert("Failed to add transaction: " + err.message);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      // 3. Updated with API_BASE
-      const res = await fetch(
-        `${API_BASE}/transactions?id=${id}&user=${DEMO_USER}`,
-        { method: "DELETE" }
-      );
-      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
-      await fetchData();
-    } catch (err) {
-      alert("Failed to delete: " + err.message);
-    }
-  };
-
-  // ... rest of your return statement remains the same
   return (
-    <div className="app">
-      <header className="app-header">
-        <h1>💰 WealthWatch</h1>
-        <p>Your personal cloud finance tracker</p>
-      </header>
+    <>
+      <section id="center">
+        <div className="hero">
+          <img src={heroImg} className="base" width="170" height="179" alt="" />
+          <img src={reactLogo} className="framework" alt="React logo" />
+          <img src={viteLogo} className="vite" alt="Vite logo" />
+        </div>
+        <div>
+          <h1>Get started</h1>
+          <p>
+            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
+          </p>
+        </div>
+        <button
+          type="button"
+          className="counter"
+          onClick={() => setCount((count) => count + 1)}
+        >
+          Count is {count}
+        </button>
+      </section>
 
-      <nav className="app-nav">
-        {["dashboard", "transactions", "add"].map(tab => (
-          <button
-            key={tab}
-            className={activeTab === tab ? "active" : ""}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab === "dashboard" && "📊 Dashboard"}
-            {tab === "transactions" && "📋 Transactions"}
-            {tab === "add" && "➕ Add New"}
-          </button>
-        ))}
-      </nav>
+      <div className="ticks"></div>
 
-      <main className="app-main">
-        {loading && (
-          <div className="loading">Loading your finances...</div>
-        )}
+      <section id="next-steps">
+        <div id="docs">
+          <svg className="icon" role="presentation" aria-hidden="true">
+            <use href="/icons.svg#documentation-icon"></use>
+          </svg>
+          <h2>Documentation</h2>
+          <p>Your questions, answered</p>
+          <ul>
+            <li>
+              <a href="https://vite.dev/" target="_blank">
+                <img className="logo" src={viteLogo} alt="" />
+                Explore Vite
+              </a>
+            </li>
+            <li>
+              <a href="https://react.dev/" target="_blank">
+                <img className="button-icon" src={reactLogo} alt="" />
+                Learn more
+              </a>
+            </li>
+          </ul>
+        </div>
+        <div id="social">
+          <svg className="icon" role="presentation" aria-hidden="true">
+            <use href="/icons.svg#social-icon"></use>
+          </svg>
+          <h2>Connect with us</h2>
+          <p>Join the Vite community</p>
+          <ul>
+            <li>
+              <a href="https://github.com/vitejs/vite" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#github-icon"></use>
+                </svg>
+                GitHub
+              </a>
+            </li>
+            <li>
+              <a href="https://chat.vite.dev/" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#discord-icon"></use>
+                </svg>
+                Discord
+              </a>
+            </li>
+            <li>
+              <a href="https://x.com/vite_js" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#x-icon"></use>
+                </svg>
+                X.com
+              </a>
+            </li>
+            <li>
+              <a href="https://bsky.app/profile/vite.dev" target="_blank">
+                <svg
+                  className="button-icon"
+                  role="presentation"
+                  aria-hidden="true"
+                >
+                  <use href="/icons.svg#bluesky-icon"></use>
+                </svg>
+                Bluesky
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
 
-        {error && (
-          <div className="error-box">
-            <strong>API Error:</strong> {error}
-            <br />
-            <small>Check the browser Console (F12) for details.</small>
-            <br />
-            <button onClick={fetchData} style={{marginTop:"8px"}}>
-              Retry
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && (
-          <>
-            {activeTab === "dashboard" && (
-              <Dashboard summary={summary} />
-            )}
-            {activeTab === "transactions" && (
-              <TransactionTable
-                transactions={transactions}
-                onDelete={handleDelete}
-              />
-            )}
-            {activeTab === "add" && (
-              <TransactionForm
-                onAdd={handleAdd}
-                onSuccess={() => setActiveTab("transactions")}
-              />
-            )}
-          </>
-        )}
-      </main>
-    </div>
-  );
+      <div className="ticks"></div>
+      <section id="spacer"></section>
+    </>
+  )
 }
 
-export default App;
+export default App
