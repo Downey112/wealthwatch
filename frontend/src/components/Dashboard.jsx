@@ -1,4 +1,3 @@
-cat > frontend/src/components/Dashboard.jsx << 'EOF'
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale, BarElement,
@@ -17,7 +16,11 @@ const COLORS = [
 ];
 
 export default function Dashboard({ summary }) {
-  if (!summary) return <p style={{color:"#94a3b8",padding:"2rem"}}>No data yet. Add your first transaction!</p>;
+  if (!summary) return (
+    <p style={{color:"#94a3b8", padding:"2rem"}}>
+      No data yet. Add your first transaction!
+    </p>
+  );
 
   const { totalIncome, totalExpenses, netBalance, byCategory, byMonth } = summary;
 
@@ -61,7 +64,6 @@ export default function Dashboard({ summary }) {
           <p>RM {netBalance.toFixed(2)}</p>
         </div>
       </div>
-
       <div className="charts">
         <div className="chart-box">
           <h3>Monthly Overview</h3>
@@ -81,4 +83,3 @@ export default function Dashboard({ summary }) {
     </div>
   );
 }
-EOF

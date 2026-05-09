@@ -1,4 +1,3 @@
-cat > frontend/src/components/TransactionForm.jsx << 'EOF'
 import { useState } from "react";
 
 const CATEGORIES = [
@@ -69,4 +68,3 @@ export default function TransactionForm({ onAdd, onSuccess }) {
     </div>
   );
 }
-EOF
