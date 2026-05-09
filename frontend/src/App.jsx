@@ -1,89 +1,128 @@
-import React from 'react';
-import './App.css';
+import { useState, useEffect } from "react";
+import Dashboard from "./components/Dashboard";
+import TransactionForm from "./components/TransactionForm";
+import TransactionTable from "./components/TransactionTable";
+import "./App.css";
+
+const DEMO_USER = "demo_user";
 
 function App() {
-  // Mock data for our aesthetic chart bars
-  const chartData = [
-    { height: '40%', type: 'green' },
-    { height: '60%', type: 'red' },
-    { height: '30%', type: 'green' },
-    { height: '80%', type: 'green' },
-    { height: '50%', type: 'red' },
-    { height: '70%', type: 'green' },
-    { height: '40%', type: 'red' },
-    { height: '90%', type: 'green' },
-    { height: '100%', type: 'green' },
-  ];
+  const [transactions, setTransactions] = useState([]);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [txRes, sumRes] = await Promise.all([
+        fetch(`/api/transactions?user=${DEMO_USER}`),
+        fetch(`/api/summary?user=${DEMO_USER}`)
+      ]);
+
+      if (!txRes.ok) throw new Error(`Transactions API: ${txRes.status}`);
+      if (!sumRes.ok) throw new Error(`Summary API: ${sumRes.status}`);
+
+      const txData = await txRes.json();
+      const sumData = await sumRes.json();
+      setTransactions(txData);
+      setSummary(sumData);
+    } catch (err) {
+      console.error("API error:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleAdd = async (transaction) => {
+    try {
+      const res = await fetch("/api/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...transaction, user: DEMO_USER })
+      });
+      if (!res.ok) throw new Error(`Add failed: ${res.status}`);
+      await fetchData();
+    } catch (err) {
+      alert("Failed to add transaction: " + err.message);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const res = await fetch(
+        `/api/transactions?id=${id}&user=${DEMO_USER}`,
+        { method: "DELETE" }
+      );
+      if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
+      await fetchData();
+    } catch (err) {
+      alert("Failed to delete: " + err.message);
+    }
+  };
 
   return (
-    <div className="app-container">
-      {/* NAVBAR */}
-      <nav className="navbar">
-        <div className="logo">
-          Wealth<span className="logo-accent">Watch</span>
-        </div>
-        <div className="nav-links">
-          <span className="active">DASHBOARD</span>
-          <span>TRANSACTIONS</span>
-          <span>ANALYTICS</span>
-        </div>
-        <button className="launch-btn">LAUNCH APP →</button>
+    <div className="app">
+      <header className="app-header">
+        <h1>💰 WealthWatch</h1>
+        <p>Your personal cloud finance tracker</p>
+      </header>
+
+      <nav className="app-nav">
+        {["dashboard", "transactions", "add"].map(tab => (
+          <button
+            key={tab}
+            className={activeTab === tab ? "active" : ""}
+            onClick={() => setActiveTab(tab)}
+          >
+            {tab === "dashboard" && "📊 Dashboard"}
+            {tab === "transactions" && "📋 Transactions"}
+            {tab === "add" && "➕ Add New"}
+          </button>
+        ))}
       </nav>
 
-      {/* HERO SECTION */}
-      <main className="hero-section">
-        
-        {/* Left Side: Typography */}
-        <div className="hero-text">
-          <div className="label">CLOUD-NATIVE FINANCE</div>
-          <h1>
-            Track every<br />
-            <i>ringgit,</i><br />
-            own your<br />
-            future
-          </h1>
-          <p>
-            A full-stack personal finance dashboard built on Microsoft Azure. 
-            Visualize income, expenses and net worth — synced to the cloud in real time.
-          </p>
-        </div>
+      <main className="app-main">
+        {loading && (
+          <div className="loading">Loading your finances...</div>
+        )}
 
-        {/* Right Side: The Dashboard Card */}
-        <div className="dashboard-widget">
-          <div className="widget-header">
-            <span className="widget-title">NET OVERVIEW</span>
-            <div className="live-badge">
-              <span className="dot"></span> LIVE
-            </div>
+        {error && (
+          <div className="error-box">
+            <strong>API Error:</strong> {error}
+            <br />
+            <small>Check the browser Console (F12) for details.</small>
+            <br />
+            <button onClick={fetchData} style={{marginTop:"8px"}}>
+              Retry
+            </button>
           </div>
-          
-          <h2 className="balance-amount">RM 2,480.00</h2>
-          <div className="balance-trend">↑ +12.4% this month</div>
+        )}
 
-          {/* Mini CSS Bar Chart */}
-          <div className="chart-bars">
-            {chartData.map((bar, index) => (
-              <div 
-                key={index} 
-                className={`bar ${bar.type}`} 
-                style={{ height: bar.height }}
-              ></div>
-            ))}
-          </div>
-
-          {/* Bottom Stats */}
-          <div className="widget-stats">
-            <div className="stat-box">
-              <div className="stat-label">INCOME</div>
-              <div className="stat-value income">RM 5,200</div>
-            </div>
-            <div className="stat-box">
-              <div className="stat-label">EXPENSES</div>
-              <div className="stat-value expense">RM 2,720</div>
-            </div>
-          </div>
-        </div>
-        
+        {!loading && !error && (
+          <>
+            {activeTab === "dashboard" && (
+              <Dashboard summary={summary} />
+            )}
+            {activeTab === "transactions" && (
+              <TransactionTable
+                transactions={transactions}
+                onDelete={handleDelete}
+              />
+            )}
+            {activeTab === "add" && (
+              <TransactionForm
+                onAdd={handleAdd}
+                onSuccess={() => setActiveTab("transactions")}
+              />
+            )}
+          </>
+        )}
       </main>
     </div>
   );
