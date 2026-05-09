@@ -4,7 +4,9 @@ import TransactionForm from "./components/TransactionForm";
 import TransactionTable from "./components/TransactionTable";
 import "./App.css";
 
-const DEMO_USER = "demo_user";
+// Use the environment variable, or fallback to your specific Azure URL
+const API_BASE = import.meta.env.VITE_API_URL || "https://wealthwatch-api-luqman.azurewebsites.net/api";
+const DEMO_USER = "wealthadmin"; // Matches the user we created in the database!
 
 function App() {
   const [transactions, setTransactions] = useState([]);
@@ -17,9 +19,10 @@ function App() {
     setLoading(true);
     setError(null);
     try {
+      // 1. Updated with API_BASE
       const [txRes, sumRes] = await Promise.all([
-        fetch(`/api/transactions?user=${DEMO_USER}`),
-        fetch(`/api/summary?user=${DEMO_USER}`)
+        fetch(`${API_BASE}/transactions?user=${DEMO_USER}`),
+        fetch(`${API_BASE}/summary?user=${DEMO_USER}`)
       ]);
 
       if (!txRes.ok) throw new Error(`Transactions API: ${txRes.status}`);
@@ -41,7 +44,8 @@ function App() {
 
   const handleAdd = async (transaction) => {
     try {
-      const res = await fetch("/api/transactions", {
+      // 2. Updated with API_BASE
+      const res = await fetch(`${API_BASE}/transactions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...transaction, user: DEMO_USER })
@@ -55,8 +59,9 @@ function App() {
 
   const handleDelete = async (id) => {
     try {
+      // 3. Updated with API_BASE
       const res = await fetch(
-        `/api/transactions?id=${id}&user=${DEMO_USER}`,
+        `${API_BASE}/transactions?id=${id}&user=${DEMO_USER}`,
         { method: "DELETE" }
       );
       if (!res.ok) throw new Error(`Delete failed: ${res.status}`);
@@ -66,6 +71,7 @@ function App() {
     }
   };
 
+  // ... rest of your return statement remains the same
   return (
     <div className="app">
       <header className="app-header">
