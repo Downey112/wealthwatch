@@ -1,4 +1,3 @@
-cat > frontend/src/components/TransactionTable.jsx << 'EOF'
 export default function TransactionTable({ transactions, onDelete }) {
   if (!transactions.length) {
     return (
@@ -51,4 +50,3 @@ export default function TransactionTable({ transactions, onDelete }) {
     </div>
   );
 }
-EOF
