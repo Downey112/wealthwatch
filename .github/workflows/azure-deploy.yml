@@ -40,8 +40,8 @@ jobs:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_LEMON_CLIFF_0776CBB00 }}
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: "upload"
-         app_location: "/frontend"   # Points to your new React folder
-          api_location: "/api"        # Points to your new API folder
+         app_location: "frontend"   # Points to your new React folder
+          api_location: "api"        # Points to your new API folder
           output_location: "dist"     # Vite defaults to 'dist'
           skip_app_build: true
 
