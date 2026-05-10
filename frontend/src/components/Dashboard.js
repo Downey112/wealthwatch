@@ -13,26 +13,50 @@ function Dashboard({ refresh }) {
     categories: []
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
+  const API_BASE = process.env.REACT_APP_API_URL || '';
+
   const fetchSummary = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get(`/api/GetSummary?year=${year}&month=${month}`);
-      setSummary(response.data);
+      const url = `${API_BASE}/api/GetSummary?year=${year}&month=${month}`;
+      console.log('Fetching summary from:', url);
+      
+      const response = await axios.get(url);
+      console.log('Summary response:', response.data);
+      
+      // Ensure categories is always an array
+      setSummary({
+        total_income: response.data.total_income || 0,
+        total_expense: response.data.total_expense || 0,
+        net_savings: response.data.net_savings || 0,
+        categories: response.data.categories || []
+      });
     } catch (error) {
       console.error('Error fetching summary:', error);
+      setError('Failed to load summary. Please check if the backend is running.');
+      // Set default empty state
+      setSummary({
+        total_income: 0,
+        total_expense: 0,
+        net_savings: 0,
+        categories: []
+      });
     } finally {
       setLoading(false);
     }
-  }, [year, month]);
+  }, [year, month, API_BASE]);
 
   useEffect(() => {
     fetchSummary();
   }, [refresh, month, year, fetchSummary]);
 
-  const chartData = {
+  // Only create chart if categories exist
+  const chartData = summary.categories && summary.categories.length > 0 ? {
     labels: summary.categories.map(c => c.category),
     datasets: [
       {
@@ -43,7 +67,7 @@ function Dashboard({ refresh }) {
         ],
       },
     ],
-  };
+  } : null;
 
   const chartOptions = {
     plugins: {
@@ -53,6 +77,7 @@ function Dashboard({ refresh }) {
   };
 
   if (loading) return <div className="card">Loading dashboard...</div>;
+  if (error) return <div className="card error">{error}</div>;
 
   return (
     <div className="dashboard">
@@ -86,7 +111,7 @@ function Dashboard({ refresh }) {
         </div>
       </div>
 
-      {summary.categories.length > 0 && (
+      {chartData && (
         <div className="chart-container">
           <h3>Spending by Category</h3>
           <div className="pie-chart-wrapper">
