@@ -26,7 +26,7 @@ function Dashboard({ refresh }) {
       const url = `${API_BASE}/api/GetSummary?year=${year}&month=${month}`;
       console.log('Fetching summary from:', url);
       
-      const response = await axios.get(url);
+      const response = await axios.get(`https://wealthwatch-api-luqman-g5b6bgb9hzhfdwc5.southeastasia-01.azurewebsites.net/api/GetSummary?year=${year}&month=${month}`);
       console.log('Summary response:', response.data);
       
       // Ensure categories is always an array
