@@ -1,46 +1,82 @@
 -- WealthWatch Database Schema
--- Run this once after provisioning Azure SQL
+-- Run this in Azure Data Studio connected to your database
 
 -- Users table
 CREATE TABLE users (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    github_username NVARCHAR(100) NOT NULL UNIQUE,
-    display_name NVARCHAR(200),
-    created_at DATETIME2 DEFAULT GETDATE()
+    user_id INT IDENTITY(1,1) PRIMARY KEY,
+    email NVARCHAR(255) UNIQUE NOT NULL,
+    display_name NVARCHAR(100),
+    created_at DATETIME DEFAULT GETDATE()
 );
-
--- Categories lookup table
-CREATE TABLE categories (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(50) NOT NULL UNIQUE
-);
-
--- Seed default categories
-INSERT INTO categories (name) VALUES
-    ('Food & Drinks'),
-    ('Transport'),
-    ('Shopping'),
-    ('Bills & Utilities'),
-    ('Entertainment'),
-    ('Healthcare'),
-    ('Education'),
-    ('Salary'),
-    ('Freelance'),
-    ('Other');
 
 -- Transactions table
 CREATE TABLE transactions (
-    id INT IDENTITY(1,1) PRIMARY KEY,
+    transaction_id INT IDENTITY(1,1) PRIMARY KEY,
     user_id INT NOT NULL,
-    amount DECIMAL(10, 2) NOT NULL,
+    amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
     type NVARCHAR(10) NOT NULL CHECK (type IN ('income', 'expense')),
     category NVARCHAR(50) NOT NULL,
-    note NVARCHAR(500),
-    transaction_date DATE NOT NULL DEFAULT CAST(GETDATE() AS DATE),
-    created_at DATETIME2 DEFAULT GETDATE(),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    description NVARCHAR(255),
+    transaction_date DATE NOT NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
--- Index for fast user-based queries
-CREATE INDEX idx_transactions_user_id ON transactions(user_id);
-CREATE INDEX idx_transactions_date ON transactions(transaction_date);
+-- Create indexes for performance
+CREATE INDEX idx_user_date ON transactions(user_id, transaction_date);
+CREATE INDEX idx_user_category ON transactions(user_id, category);
+
+-- Sample categories
+CREATE TABLE default_categories (
+    category_id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(50) UNIQUE NOT NULL,
+    type NVARCHAR(10) NOT NULL
+);
+
+INSERT INTO default_categories (name, type) VALUES
+('Salary', 'income'),
+('Freelance', 'income'),
+('Food', 'expense'),
+('Transport', 'expense'),
+('Housing', 'expense'),
+('Utilities', 'expense'),
+('Entertainment', 'expense'),
+('Healthcare', 'expense'),
+('Shopping', 'expense'),
+('Education', 'expense');
+
+-- Stored Procedure: Monthly Summary
+CREATE PROCEDURE GetMonthlySummary
+    @user_id INT,
+    @year INT,
+    @month INT
+AS
+BEGIN
+    SELECT 
+        SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income,
+        SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expense,
+        SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as net_savings
+    FROM transactions
+    WHERE user_id = @user_id 
+        AND YEAR(transaction_date) = @year 
+        AND MONTH(transaction_date) = @month;
+END;
+
+-- Stored Procedure: Category Breakdown
+CREATE PROCEDURE GetCategoryBreakdown
+    @user_id INT,
+    @year INT,
+    @month INT
+AS
+BEGIN
+    SELECT 
+        category,
+        SUM(amount) as total
+    FROM transactions
+    WHERE user_id = @user_id 
+        AND type = 'expense'
+        AND YEAR(transaction_date) = @year 
+        AND MONTH(transaction_date) = @month
+    GROUP BY category
+    ORDER BY total DESC;
+END;
