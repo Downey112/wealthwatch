@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Pie } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import axios from 'axios';
@@ -16,11 +16,7 @@ function Dashboard({ refresh }) {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchSummary();
-  }, [refresh, month, year]);
-
-  const fetchSummary = async () => {
+  const fetchSummary = useCallback(async () => {
     setLoading(true);
     try {
       const response = await axios.get(`/api/GetSummary?year=${year}&month=${month}`);
@@ -30,7 +26,11 @@ function Dashboard({ refresh }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [year, month]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [refresh, month, year, fetchSummary]);
 
   const chartData = {
     labels: summary.categories.map(c => c.category),

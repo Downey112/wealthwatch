@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 function TransactionList({ refresh }) {
@@ -7,11 +7,7 @@ function TransactionList({ refresh }) {
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [refresh, filterMonth, filterYear]);
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     setLoading(true);
     try {
       const response = await axios.get(`/api/GetTransactions?year=${filterYear}&month=${filterMonth}`);
@@ -21,7 +17,11 @@ function TransactionList({ refresh }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filterYear, filterMonth]);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, [refresh, filterMonth, filterYear, fetchTransactions]);
 
   const handleDelete = async (id) => {
     if (window.confirm('Delete this transaction?')) {
