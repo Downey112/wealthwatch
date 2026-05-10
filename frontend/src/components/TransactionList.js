@@ -4,20 +4,31 @@ import axios from 'axios';
 function TransactionList({ refresh }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
+  const API_BASE = process.env.REACT_APP_API_URL || '';
+
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const response = await axios.get(`/api/GetTransactions?year=${filterYear}&month=${filterMonth}`);
-      setTransactions(response.data);
+      const url = `${API_BASE}/api/GetTransactions?year=${filterYear}&month=${filterMonth}`;
+      console.log('Fetching transactions from:', url);
+      
+      const response = await axios.get(url);
+      console.log('Transactions response:', response.data);
+      
+      setTransactions(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
+      setError('Failed to load transactions');
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
-  }, [filterYear, filterMonth]);
+  }, [filterYear, filterMonth, API_BASE]);
 
   useEffect(() => {
     fetchTransactions();
@@ -26,7 +37,7 @@ function TransactionList({ refresh }) {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this transaction?')) {
       try {
-        await axios.delete(`/api/DeleteTransaction/${id}`);
+        await axios.delete(`${API_BASE}/api/DeleteTransaction/${id}`);
         fetchTransactions();
       } catch (error) {
         console.error('Error deleting:', error);
@@ -36,6 +47,7 @@ function TransactionList({ refresh }) {
   };
 
   if (loading) return <div className="card">Loading transactions...</div>;
+  if (error) return <div className="card error">{error}</div>;
 
   return (
     <div className="card">
