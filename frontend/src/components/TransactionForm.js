@@ -20,7 +20,7 @@ function TransactionForm({ onSuccess }) {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await axios.post('https://wealthwatch-api-luqman-g5b6bgb9hzhfdwc5.southeastasia-01.azurewebsites.net/api/AddTransaction', {
+      await axios.post('https://wealthwatch-api-luqman-g5b6bgb9hzhfdwc5.southeastasia-01.azurewebsites.net/api/addtransaction', {
         ...formData,
         amount: parseFloat(formData.amount)
       });
