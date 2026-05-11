@@ -4,8 +4,15 @@ import json
 import pymssql
 import os
 from datetime import datetime
+from decimal import Decimal
 
 app = func.FunctionApp()
+
+# Helper function to convert Decimal to float for JSON serialization
+def convert_decimal(obj):
+    if isinstance(obj, Decimal):
+        return float(obj)
+    raise TypeError
 
 # Database connection helper using pymssql
 def get_db_connection():
@@ -138,9 +145,12 @@ def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
             else:
                 date_str = str(transaction_date)
             
+            # Convert Decimal to float for JSON serialization
+            amount_val = float(row[1]) if isinstance(row[1], Decimal) else row[1]
+            
             transactions.append({
                 "id": row[0],
-                "amount": float(row[1]),
+                "amount": float(amount_val),
                 "type": row[2],
                 "category": row[3],
                 "description": row[4] if row[4] else "",
@@ -149,8 +159,9 @@ def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
         
         conn.close()
         
+        # Use custom JSON encoder for Decimal
         return func.HttpResponse(
-            json.dumps(transactions),
+            json.dumps(transactions, default=convert_decimal),
             mimetype="application/json",
             status_code=200
         )
@@ -206,9 +217,11 @@ def get_summary(req: func.HttpRequest) -> func.HttpResponse:
         
         categories = []
         for row in cursor.fetchall():
+            # Convert Decimal to float
+            total_val = float(row[1]) if isinstance(row[1], Decimal) else row[1]
             categories.append({
                 "category": row[0],
-                "total": float(row[1])
+                "total": float(total_val)
             })
         
         conn.close()
@@ -223,7 +236,7 @@ def get_summary(req: func.HttpRequest) -> func.HttpResponse:
         }
         
         return func.HttpResponse(
-            json.dumps(result),
+            json.dumps(result, default=convert_decimal),
             mimetype="application/json",
             status_code=200
         )
