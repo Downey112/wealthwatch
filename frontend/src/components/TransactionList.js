@@ -15,7 +15,7 @@ function TransactionList({ refresh }) {
     setLoading(true);
     setError(null);
     try {
-      const url = `${API_BASE}/GetTransactions?year=${filterYear}&month=${filterMonth}`;
+      const url = `${API_BASE}/gettransactions?year=${filterYear}&month=${filterMonth}`;
       console.log('Fetching transactions from:', url);
       
       const response = await axios.get(url);
@@ -38,7 +38,7 @@ function TransactionList({ refresh }) {
   const handleDelete = async (id) => {
     if (window.confirm('Delete this transaction?')) {
       try {
-        await axios.delete(`${API_BASE}/DeleteTransaction/${id}`);
+        await axios.delete(`${API_BASE}/deletetransaction/${id}`);
         fetchTransactions();
       } catch (error) {
         console.error('Error deleting:', error);

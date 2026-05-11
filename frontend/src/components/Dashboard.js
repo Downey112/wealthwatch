@@ -23,7 +23,7 @@ function Dashboard({ refresh }) {
     setLoading(true);
     setError(null);
     try {
-      const url = `${API_BASE}/api/GetSummary?year=${year}&month=${month}`;
+      const url = `${API_BASE}/getsummary?year=${year}&month=${month}`;
       console.log('Fetching summary from:', url);
       
       const response = await axios.get(`https://wealthwatch-api-luqman-g5b6bgb9hzhfdwc5.southeastasia-01.azurewebsites.net/api/GetSummary?year=${year}&month=${month}`);
