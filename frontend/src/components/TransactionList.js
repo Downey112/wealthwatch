@@ -1,75 +1,65 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { getTransactions, deleteTransaction, errorMessage } from '../api';
+import PeriodSelect from './PeriodSelect';
 
-function TransactionList({ refresh }) {
+function TransactionList({ refresh, onChange }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
-  // Use the full Function App URL directly
-  const API_BASE = 'https://wealthwatch-api-luqman-g5b6bgb9hzhfdwc5.southeastasia-01.azurewebsites.net/api';
-
   const fetchTransactions = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = `${API_BASE}/gettransactions?year=${filterYear}&month=${filterMonth}`;
-      console.log('Fetching transactions from:', url);
-      
-      const response = await axios.get(url);
-      console.log('Transactions response:', response.data);
-      
-      setTransactions(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
+      const data = await getTransactions(filterYear, filterMonth);
+      setTransactions(Array.isArray(data) ? data : []);
+    } catch (err) {
       setError('Failed to load transactions');
       setTransactions([]);
     } finally {
       setLoading(false);
     }
-  }, [filterYear, filterMonth, API_BASE]);
+  }, [filterYear, filterMonth]);
 
   useEffect(() => {
     fetchTransactions();
-  }, [refresh, filterMonth, filterYear, fetchTransactions]);
+  }, [refresh, fetchTransactions]);
 
   const handleDelete = async (id) => {
     if (window.confirm('Delete this transaction?')) {
       try {
-        await axios.delete(`${API_BASE}/deletetransaction/${id}`);
-        fetchTransactions();
-      } catch (error) {
-        console.error('Error deleting:', error);
-        alert('Failed to delete');
+        await deleteTransaction(id);
+        // Refreshes this list and the dashboard totals together.
+        onChange();
+      } catch (err) {
+        setError(errorMessage(err, 'Failed to delete transaction'));
       }
     }
   };
-
-  if (loading) return <div className="card">Loading transactions...</div>;
-  if (error) return <div className="card error">{error}</div>;
 
   return (
     <div className="card">
       <div className="list-header">
         <h2>Transactions</h2>
         <div className="filter-controls">
-          <select value={filterMonth} onChange={(e) => setFilterMonth(parseInt(e.target.value))}>
-            {[1,2,3,4,5,6,7,8,9,10,11,12].map(m => (
-              <option key={m} value={m}>{new Date(2024, m-1).toLocaleString('default', { month: 'short' })}</option>
-            ))}
-          </select>
-          <select value={filterYear} onChange={(e) => setFilterYear(parseInt(e.target.value))}>
-            <option value={2023}>2023</option>
-            <option value={2024}>2024</option>
-            <option value={2025}>2025</option>
-          </select>
+          <PeriodSelect
+            month={filterMonth}
+            year={filterYear}
+            onMonthChange={setFilterMonth}
+            onYearChange={setFilterYear}
+            monthFormat="short"
+          />
         </div>
       </div>
 
-      {transactions.length === 0 ? (
-        <p className="empty-state">No transactions for this period</p>
+      {error && <p className="form-error" role="alert">{error}</p>}
+
+      {loading && transactions.length === 0 ? (
+        <p className="empty-state">Loading transactions...</p>
+      ) : transactions.length === 0 ? (
+        !error && <p className="empty-state">No transactions for this period</p>
       ) : (
         <div className="transaction-list">
           {transactions.map(tx => (
@@ -83,7 +73,13 @@ function TransactionList({ refresh }) {
                 <span className={tx.type === 'income' ? 'income-amount' : 'expense-amount'}>
                   {tx.type === 'income' ? '+' : '-'} RM {Math.abs(tx.amount).toFixed(2)}
                 </span>
-                <button onClick={() => handleDelete(tx.id)} className="delete-btn">🗑️</button>
+                <button
+                  onClick={() => handleDelete(tx.id)}
+                  className="delete-btn"
+                  aria-label={`Delete ${tx.category} transaction of RM ${Math.abs(tx.amount).toFixed(2)}`}
+                >
+                  🗑️
+                </button>
               </div>
             </div>
           ))}

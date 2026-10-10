@@ -296,3 +296,11 @@ button[type="submit"]:hover {
   color: white;
   font-size: 1.2rem;
 }
+.card.error,
+.form-error {
+  color: #dc3545;
+}
+
+.form-error {
+  margin-bottom: 1rem;
+}

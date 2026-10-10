@@ -2,11 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Attach to PowerShell Functions",
-            "type": "PowerShell",
+            "name": "Attach to Python Functions",
+            "type": "debugpy",
             "request": "attach",
-            "customPipeName": "AzureFunctionsPSWorker",
-            "runspaceId": 1,
+            "connect": {
+                "host": "localhost",
+                "port": 9091
+            },
             "preLaunchTask": "func: host start"
         }
     ]

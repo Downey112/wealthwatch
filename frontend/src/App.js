@@ -4,6 +4,12 @@ import TransactionForm from './components/TransactionForm';
 import TransactionList from './components/TransactionList';
 import './App.css';
 
+// `npm start` has no Static Web Apps auth endpoint, so local development signs
+// in as this user. The backend uses DEV_USER_EMAIL for the same purpose.
+const DEV_USER = process.env.NODE_ENV === 'development'
+  ? { userDetails: 'dev@localhost' }
+  : null;
+
 function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -13,18 +19,12 @@ function App() {
     // Azure Static Web Apps built-in auth
     fetch('/.auth/me')
       .then(res => res.json())
-      .then(data => {
-        if (data.clientPrincipal) {
-          setUser(data.clientPrincipal);
-        }
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
+      .then(data => setUser(data.clientPrincipal || DEV_USER))
+      .catch(() => setUser(DEV_USER))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleTransactionAdded = () => {
+  const handleDataChanged = () => {
     setRefresh(prev => prev + 1);
   };
 
@@ -58,8 +58,8 @@ function App() {
       <div className="container">
         <Dashboard refresh={refresh} />
         <div className="grid-2">
-          <TransactionForm onSuccess={handleTransactionAdded} />
-          <TransactionList refresh={refresh} />
+          <TransactionForm onSuccess={handleDataChanged} />
+          <TransactionList refresh={refresh} onChange={handleDataChanged} />
         </div>
       </div>
     </div>

@@ -1,0 +1,10 @@
+.venv
+.vscode
+.pytest_cache
+__pycache__
+tests
+requirements-dev.txt
+local.settings.json
+local.settings.example.json
+*.db
+*.zip
