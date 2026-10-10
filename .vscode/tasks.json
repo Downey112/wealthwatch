@@ -5,7 +5,7 @@
 			"type": "func",
 			"label": "func: host start",
 			"command": "host start",
-			"problemMatcher": "$func-powershell-watch",
+			"problemMatcher": "$func-python-watch",
 			"isBackground": true,
 			"options": {
 				"cwd": "${workspaceFolder}/backend"

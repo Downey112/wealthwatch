@@ -1,1 +1,15 @@
-node_modules/\n.env\n__pycache__/\n*.pyc
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Secrets and local settings
+.env
+.env.local
+local.settings.json
+*.PublishSettings
+
+# Deployment packages and local data
+*.zip
+*.db

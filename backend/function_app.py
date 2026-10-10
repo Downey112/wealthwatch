@@ -1,280 +1,252 @@
 import azure.functions as func
-import logging
+import base64
 import json
-import pymssql
+import logging
 import os
-from datetime import datetime
-from decimal import Decimal
+from datetime import date
+from decimal import Decimal, InvalidOperation
 
-app = func.FunctionApp()
+import db
 
-# Helper function to convert Decimal to float for JSON serialization
-def convert_decimal(obj):
-    if isinstance(obj, Decimal):
-        return float(obj)
-    raise TypeError
+app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
 
-# Database connection helper using pymssql
-def get_db_connection():
-    server = os.environ.get("DB_SERVER")
-    database = os.environ.get("DB_NAME")
-    username = os.environ.get("DB_USER")
-    password = os.environ.get("DB_PASSWORD")
-    
-    logging.info(f"Connecting to {server}...")
-    
-    return pymssql.connect(
-        server=server,
-        database=database,
-        user=username,
-        password=password,
-        autocommit=False
+MAX_AMOUNT = Decimal("99999999.99")  # transactions.amount is DECIMAL(10,2)
+TRANSACTION_TYPES = ("income", "expense")
+DEFAULT_LIMIT = 50
+MAX_LIMIT = 500
+
+
+class ApiError(Exception):
+    def __init__(self, message, status_code=400):
+        super().__init__(message)
+        self.message = message
+        self.status_code = status_code
+
+
+def json_response(body, status_code=200):
+    return func.HttpResponse(
+        json.dumps(body), status_code=status_code, mimetype="application/json"
     )
 
-def get_user_id_from_auth(req, conn):
-    """Extract user info from Static Web Apps headers"""
-    user_email = req.headers.get("x-ms-client-principal-name")
-    
-    logging.info(f"User Email: {user_email}")
-    
-    if not user_email:
-        user_email = "test@example.com"
-        logging.warning("No auth header found, using test@example.com")
-    
-    cursor = conn.cursor()
-    
-    # Check if user exists
-    cursor.execute("SELECT user_id FROM users WHERE email = %s", (user_email,))
-    row = cursor.fetchone()
-    
-    if row:
-        user_db_id = row[0]
-        logging.info(f"Found existing user: {user_db_id}")
-        return user_db_id
-    else:
-        # Create new user
-        cursor.execute(
-            "INSERT INTO users (email, display_name) VALUES (%s, %s)",
-            (user_email, user_email.split('@')[0])
-        )
-        conn.commit()
-        
-        # Get the new user_id
-        cursor.execute("SELECT user_id FROM users WHERE email = %s", (user_email,))
-        user_db_id = cursor.fetchone()[0]
-        logging.info(f"Created new user: {user_db_id}")
-        return user_db_id
 
-# Add Transaction endpoint
-@app.route(route="AddTransaction", methods=["POST"], auth_level=func.AuthLevel.ANONYMOUS)
-def add_transaction(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        req_body = req.get_json()
-        logging.info(f"AddTransaction request body: {req_body}")
-        
-        conn = get_db_connection()
-        user_id = get_user_id_from_auth(req, conn)
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            INSERT INTO transactions (user_id, amount, type, category, description, transaction_date)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            user_id,
-            float(req_body['amount']),
-            req_body['type'],
-            req_body['category'],
-            req_body.get('description', ''),
-            req_body['transaction_date']
-        ))
-        
-        conn.commit()
-        
-        # Get the inserted transaction ID
-        cursor.execute("SELECT @@IDENTITY AS id")
-        transaction_id = cursor.fetchone()[0]
-        
-        conn.close()
-        
-        return func.HttpResponse(
-            json.dumps({"transaction_id": transaction_id, "message": "Transaction added"}),
-            status_code=201,
-            mimetype="application/json"
-        )
-    except Exception as e:
-        logging.error(f"Error in AddTransaction: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}), 
-            status_code=400, 
-            mimetype="application/json"
-        )
+def get_user_email(req):
+    """Identify the caller from the headers Azure Static Web Apps injects.
 
-# Get Transactions endpoint
-@app.route(route="GetTransactions", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
-def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        conn = get_db_connection()
-        user_id = get_user_id_from_auth(req, conn)
-        
-        year = req.params.get('year')
-        month = req.params.get('month')
-        limit = req.params.get('limit', '50')
-        
-        cursor = conn.cursor()
-        
-        if year and month:
-            cursor.execute("""
-                SELECT transaction_id, amount, type, category, description, transaction_date
-                FROM transactions
-                WHERE user_id = %s AND YEAR(transaction_date) = %s AND MONTH(transaction_date) = %s
-                ORDER BY transaction_date DESC
-            """, (user_id, int(year), int(month)))
-        else:
-            cursor.execute("""
-                SELECT TOP %s transaction_id, amount, type, category, description, transaction_date
-                FROM transactions
-                WHERE user_id = %s
-                ORDER BY transaction_date DESC
-            """, (int(limit), user_id))
-        
-        transactions = []
-        for row in cursor.fetchall():
-            transaction_date = row[5]
-            if hasattr(transaction_date, 'isoformat'):
-                date_str = transaction_date.isoformat()
-            else:
-                date_str = str(transaction_date)
-            
-            # Convert Decimal to float for JSON serialization
-            amount_val = float(row[1]) if isinstance(row[1], Decimal) else row[1]
-            
-            transactions.append({
-                "id": row[0],
-                "amount": float(amount_val),
-                "type": row[2],
-                "category": row[3],
-                "description": row[4] if row[4] else "",
-                "date": date_str
-            })
-        
-        conn.close()
-        
-        # Use custom JSON encoder for Decimal
-        return func.HttpResponse(
-            json.dumps(transactions, default=convert_decimal),
-            mimetype="application/json",
-            status_code=200
-        )
-    except Exception as e:
-        logging.error(f"Error in GetTransactions: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=400,
-            mimetype="application/json"
-        )
-
-# Get Summary endpoint
-@app.route(route="GetSummary", methods=["GET"], auth_level=func.AuthLevel.ANONYMOUS)
-def get_summary(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        conn = get_db_connection()
-        user_id = get_user_id_from_auth(req, conn)
-        
-        now = datetime.now()
-        year = req.params.get('year', str(now.year))
-        month = req.params.get('month', str(now.month))
-        
+    These headers are only trustworthy when the Function App is reachable
+    solely through Static Web Apps (a linked backend). DEV_USER_EMAIL is a
+    local-development fallback and must not be set in production.
+    """
+    principal = req.headers.get("x-ms-client-principal")
+    if principal:
         try:
-            year_int = int(year)
-            month_int = int(month)
-        except ValueError:
-            return func.HttpResponse(
-                json.dumps({"error": "Invalid year or month format"}),
-                status_code=400,
-                mimetype="application/json"
-            )
-        
-        cursor = conn.cursor()
-        
-        cursor.execute("""
-            SELECT 
-                SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END) as total_income,
-                SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END) as total_expense,
-                SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) as net_savings
-            FROM transactions
-            WHERE user_id = %s AND YEAR(transaction_date) = %s AND MONTH(transaction_date) = %s
-        """, (user_id, year_int, month_int))
-        
-        summary = cursor.fetchone()
-        
-        cursor.execute("""
-            SELECT category, SUM(amount) as total
-            FROM transactions
-            WHERE user_id = %s AND type = 'expense' AND YEAR(transaction_date) = %s AND MONTH(transaction_date) = %s
-            GROUP BY category
-            ORDER BY total DESC
-        """, (user_id, year_int, month_int))
-        
-        categories = []
-        for row in cursor.fetchall():
-            # Convert Decimal to float
-            total_val = float(row[1]) if isinstance(row[1], Decimal) else row[1]
-            categories.append({
-                "category": row[0],
-                "total": float(total_val)
-            })
-        
-        conn.close()
-        
-        result = {
-            "year": year_int,
-            "month": month_int,
-            "total_income": float(summary[0]) if summary[0] else 0,
-            "total_expense": float(summary[1]) if summary[1] else 0,
-            "net_savings": float(summary[2]) if summary[2] else 0,
-            "categories": categories
-        }
-        
-        return func.HttpResponse(
-            json.dumps(result, default=convert_decimal),
-            mimetype="application/json",
-            status_code=200
+            details = json.loads(base64.b64decode(principal)).get("userDetails")
+        except (ValueError, AttributeError):
+            details = None
+        if details:
+            return details
+
+    email = req.headers.get("x-ms-client-principal-name") or os.environ.get("DEV_USER_EMAIL")
+    if not email:
+        raise ApiError("Sign in required", 401)
+    return email
+
+
+def run(req, handler):
+    """Open a connection, resolve the user, and turn failures into JSON errors."""
+    try:
+        email = get_user_email(req)
+        with db.connect() as database:
+            user_id = db.get_or_create_user(database, email)
+            return handler(req, database, user_id)
+    except ApiError as e:
+        return json_response({"error": e.message}, e.status_code)
+    except Exception:
+        logging.exception("Unhandled error in %s", handler.__name__)
+        return json_response({"error": "Internal server error"}, 500)
+
+
+def parse_int(value, name, minimum, maximum):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        raise ApiError(f"{name} must be a whole number")
+    if not minimum <= number <= maximum:
+        raise ApiError(f"{name} must be between {minimum} and {maximum}")
+    return number
+
+
+def month_range(year, month):
+    """First day of the month and first day of the next, as ISO strings."""
+    start = date(year, month, 1)
+    end = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+    return start.isoformat(), end.isoformat()
+
+
+def parse_period(req, required):
+    year = req.params.get("year")
+    month = req.params.get("month")
+    if not year and not month and not required:
+        return None
+    today = date.today()
+    return (
+        parse_int(year or today.year, "year", 1900, 9999),
+        parse_int(month or today.month, "month", 1, 12),
+    )
+
+
+def parse_transaction(body):
+    if not isinstance(body, dict):
+        raise ApiError("Request body must be a JSON object")
+
+    try:
+        amount = Decimal(str(body.get("amount"))).quantize(Decimal("0.01"))
+    except (InvalidOperation, ValueError):
+        raise ApiError("amount must be a number")
+    if not amount.is_finite() or amount <= 0 or amount > MAX_AMOUNT:
+        raise ApiError(f"amount must be greater than 0 and at most {MAX_AMOUNT}")
+
+    tx_type = body.get("type")
+    if tx_type not in TRANSACTION_TYPES:
+        raise ApiError("type must be 'income' or 'expense'")
+
+    category = str(body.get("category") or "").strip()
+    if not category or len(category) > 50:
+        raise ApiError("category is required and must be at most 50 characters")
+
+    description = str(body.get("description") or "").strip()
+    if len(description) > 255:
+        raise ApiError("description must be at most 255 characters")
+
+    try:
+        transaction_date = date.fromisoformat(str(body.get("transaction_date")))
+    except ValueError:
+        raise ApiError("transaction_date must be a date in YYYY-MM-DD format")
+
+    return {
+        "amount": amount,
+        "type": tx_type,
+        "category": category,
+        "description": description,
+        "transaction_date": transaction_date.isoformat(),
+    }
+
+
+def add_transaction_handler(req, database, user_id):
+    try:
+        body = req.get_json()
+    except ValueError:
+        raise ApiError("Request body must be valid JSON")
+
+    transaction = parse_transaction(body)
+    transaction_id = database.insert(
+        "transactions", "transaction_id", {"user_id": user_id, **transaction}
+    )
+    database.commit()
+    return json_response({"transaction_id": transaction_id, "message": "Transaction added"}, 201)
+
+
+def get_transactions_handler(req, database, user_id):
+    columns = "transaction_id, amount, type, category, description, transaction_date"
+    order = "ORDER BY transaction_date DESC, transaction_id DESC"
+    period = parse_period(req, required=False)
+
+    if period:
+        start, end = month_range(*period)
+        cursor = database.execute(
+            f"SELECT {columns} FROM transactions "
+            f"WHERE user_id = %s AND transaction_date >= %s AND transaction_date < %s {order}",
+            (user_id, start, end),
         )
-    except Exception as e:
-        logging.error(f"Error in GetSummary: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}),
-            status_code=400,
-            mimetype="application/json"
+    else:
+        limit = parse_int(req.params.get("limit", DEFAULT_LIMIT), "limit", 1, MAX_LIMIT)
+        cursor = database.execute(
+            f"SELECT {columns} FROM transactions WHERE user_id = %s {order} "
+            f"{database.limit_clause}",
+            (user_id, limit),
         )
 
-# Delete Transaction endpoint
-@app.route(route="DeleteTransaction/{id}", methods=["DELETE"], auth_level=func.AuthLevel.ANONYMOUS)
+    return json_response([
+        {
+            "id": row[0],
+            "amount": float(row[1]),
+            "type": row[2],
+            "category": row[3],
+            "description": row[4] or "",
+            "date": str(row[5])[:10],
+        }
+        for row in cursor.fetchall()
+    ])
+
+
+def get_summary_handler(req, database, user_id):
+    year, month = parse_period(req, required=True)
+    start, end = month_range(year, month)
+    in_month = "user_id = %s AND transaction_date >= %s AND transaction_date < %s"
+
+    totals = database.execute(
+        f"""
+        SELECT
+            SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END),
+            SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END)
+        FROM transactions
+        WHERE {in_month}
+        """,
+        (user_id, start, end),
+    ).fetchone()
+    income = float(totals[0] or 0)
+    expense = float(totals[1] or 0)
+
+    categories = database.execute(
+        f"""
+        SELECT category, SUM(amount) AS total
+        FROM transactions
+        WHERE {in_month} AND type = 'expense'
+        GROUP BY category
+        ORDER BY total DESC
+        """,
+        (user_id, start, end),
+    ).fetchall()
+
+    return json_response({
+        "year": year,
+        "month": month,
+        "total_income": round(income, 2),
+        "total_expense": round(expense, 2),
+        "net_savings": round(income - expense, 2),
+        "categories": [
+            {"category": row[0], "total": round(float(row[1]), 2)} for row in categories
+        ],
+    })
+
+
+def delete_transaction_handler(req, database, user_id):
+    transaction_id = parse_int(req.route_params.get("id"), "id", 1, 2**31 - 1)
+    cursor = database.execute(
+        "DELETE FROM transactions WHERE transaction_id = %s AND user_id = %s",
+        (transaction_id, user_id),
+    )
+    deleted = cursor.rowcount
+    database.commit()
+    if not deleted:
+        raise ApiError("Transaction not found", 404)
+    return json_response({"message": "Transaction deleted"})
+
+
+@app.route(route="addtransaction", methods=["POST"])
+def add_transaction(req: func.HttpRequest) -> func.HttpResponse:
+    return run(req, add_transaction_handler)
+
+
+@app.route(route="gettransactions", methods=["GET"])
+def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
+    return run(req, get_transactions_handler)
+
+
+@app.route(route="getsummary", methods=["GET"])
+def get_summary(req: func.HttpRequest) -> func.HttpResponse:
+    return run(req, get_summary_handler)
+
+
+@app.route(route="deletetransaction/{id}", methods=["DELETE"])
 def delete_transaction(req: func.HttpRequest) -> func.HttpResponse:
-    try:
-        transaction_id = req.route_params.get('id')
-        if not transaction_id:
-            return func.HttpResponse("Transaction ID required", status_code=400)
-        
-        conn = get_db_connection()
-        user_id = get_user_id_from_auth(req, conn)
-        
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM transactions WHERE transaction_id = %s AND user_id = %s", 
-                       (transaction_id, user_id))
-        conn.commit()
-        
-        affected = cursor.rowcount
-        conn.close()
-        
-        if affected > 0:
-            return func.HttpResponse("Deleted successfully", status_code=200)
-        else:
-            return func.HttpResponse("Transaction not found", status_code=404)
-    except Exception as e:
-        logging.error(f"Error in DeleteTransaction: {str(e)}")
-        return func.HttpResponse(
-            json.dumps({"error": str(e)}), 
-            status_code=400, 
-            mimetype="application/json"
-        )
+    return run(req, delete_transaction_handler)

@@ -1,21 +1,18 @@
 name: Azure Static Web Apps CI/CD
 
+# Manual only: the Static Web App this token belongs to no longer exists, so
+# deploying on every push would fail. Restore the push and pull_request
+# triggers once a new Static Web App and deployment token are in place.
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened, closed]
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build_and_deploy_job:
-    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    if: github.event_name != 'pull_request' || github.event.action != 'closed'
     runs-on: ubuntu-latest
     name: Build and Deploy Job
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
           lfs: false
