@@ -2,7 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci --prefix frontend",
-  "buildCommand": "npm run build --prefix frontend",
+  "buildCommand": "REACT_APP_SUPABASE_URL=\"${REACT_APP_SUPABASE_URL:-$SUPABASE_URL}\" REACT_APP_SUPABASE_ANON_KEY=\"${REACT_APP_SUPABASE_ANON_KEY:-$SUPABASE_ANON_KEY}\" npm run build --prefix frontend",
   "outputDirectory": "frontend/build",
   "functions": {
     "api/index.py": {

@@ -41,6 +41,7 @@ BOB = bearer(token("bob@example.com"))
 @pytest.fixture(autouse=True)
 def environment(tmp_path, monkeypatch):
     monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("POSTGRES_URL", raising=False)
     monkeypatch.delenv("DEV_USER_EMAIL", raising=False)
     monkeypatch.delenv("VERCEL", raising=False)
     monkeypatch.setenv("SQLITE_PATH", str(tmp_path / "test.db"))
@@ -258,6 +259,19 @@ def test_dev_user_email_is_ignored_on_vercel(monkeypatch):
     monkeypatch.setenv("VERCEL", "1")
     status, _ = call("GET", "/gettransactions", headers={})
     assert status == 401
+
+
+def test_postgres_url_drops_options_libpq_does_not_know(monkeypatch):
+    assert main.db.postgres_url() is None
+
+    monkeypatch.setenv(
+        "POSTGRES_URL",
+        "postgres://u:p@host:6543/postgres?sslmode=require&supa=base-pooler.x&pgbouncer=true",
+    )
+    assert main.db.postgres_url() == "postgres://u:p@host:6543/postgres?sslmode=require"
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@other/db")
+    assert main.db.postgres_url() == "postgresql://u:p@other/db"
 
 
 def test_health_needs_no_sign_in():
