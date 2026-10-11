@@ -5,6 +5,8 @@
 A personal finance dashboard: record income and expenses, see monthly totals and net
 savings, and view spending by category.
 
+**Live: https://wealthwatch-six.vercel.app**
+
 - **Frontend** - React 19 (Create React App), Chart.js, hosted on Vercel
 - **Backend** - Python FastAPI, running as a Vercel serverless function
 - **Database** - Supabase Postgres in the cloud, SQLite on your machine
@@ -78,7 +80,7 @@ Backend (`backend/.env` locally, Vercel environment variables in production):
 
 | Setting | Purpose |
 |---|---|
-| `DATABASE_URL` | Postgres connection string. Use Supabase's **transaction pooler** string (port 6543). Leave unset to use SQLite |
+| `DATABASE_URL` or `POSTGRES_URL` | Postgres connection string. Use Supabase's **transaction pooler** string (port 6543). Leave both unset to use SQLite |
 | `SUPABASE_URL` | `https://<project-ref>.supabase.co`. Access tokens are verified against this project's signing keys |
 | `SUPABASE_JWT_SECRET` | Only for older Supabase projects that still sign tokens with the shared secret |
 | `SQLITE_PATH` | Optional path for the SQLite file |
@@ -93,6 +95,12 @@ Frontend (build-time, see `frontend/.env.example`):
 | `REACT_APP_API_URL` | Optional API base URL (default `/api`) |
 
 ## Deploying
+
+The live site uses Vercel's Supabase integration (`npx vercel integration add supabase`),
+which creates the Supabase project and injects `POSTGRES_URL`, `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` into the Vercel project; the build passes the last two on to the
+React app. With that route only the migration in `supabase/migrations/` has to be applied
+by hand. To wire the two services up yourself instead:
 
 1. **Supabase** - create a project, then from the repository root:
    ```bash

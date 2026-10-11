@@ -1,11 +1,14 @@
 """Database access for WealthWatch.
 
-Uses Postgres (via psycopg) when DATABASE_URL is set, and a local SQLite file
+Uses Postgres (via psycopg) when DATABASE_URL or POSTGRES_URL is set, and a local SQLite file
 otherwise so the API runs on a laptop with no cloud resources.
 """
 import os
 import sqlite3
 from decimal import Decimal
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+NON_LIBPQ_OPTIONS = ("supa", "pgbouncer")
 
 SQLITE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
@@ -76,8 +79,19 @@ class Database:
         return False
 
 
+def postgres_url():
+    """DATABASE_URL, or the POSTGRES_URL that Vercel's Supabase integration sets."""
+    url = os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+    if not url:
+        return None
+    # The integration appends routing hints that libpq rejects as unknown options.
+    parts = urlsplit(url)
+    query = [(k, v) for k, v in parse_qsl(parts.query) if k not in NON_LIBPQ_OPTIONS]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
 def connect():
-    url = os.environ.get("DATABASE_URL")
+    url = postgres_url()
     if url:
         import psycopg  # imported lazily so local SQLite runs do not need it
 

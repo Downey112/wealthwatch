@@ -14,3 +14,5 @@ local.settings.json
 # Deployment packages and local data
 *.zip
 *.db
+.env*
+!.env.example
