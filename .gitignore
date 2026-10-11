@@ -9,7 +9,10 @@ __pycache__/
 .env.local
 local.settings.json
 *.PublishSettings
+.vercel
 
 # Deployment packages and local data
 *.zip
 *.db
+.env*
+!.env.example

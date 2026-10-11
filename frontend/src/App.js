@@ -1,14 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
+import Login from './components/Login';
 import TransactionForm from './components/TransactionForm';
 import TransactionList from './components/TransactionList';
+import { supabase } from './supabase';
 import './App.css';
 
-// `npm start` has no Static Web Apps auth endpoint, so local development signs
-// in as this user. The backend uses DEV_USER_EMAIL for the same purpose.
+// Without Supabase settings `npm start` has nothing to sign in to, so local
+// development signs in as this user. The backend uses DEV_USER_EMAIL for the
+// same purpose.
 const DEV_USER = process.env.NODE_ENV === 'development'
-  ? { userDetails: 'dev@localhost' }
+  ? { email: 'dev@localhost' }
   : null;
+
+const userOf = (session) => (session ? { email: session.user.email } : null);
 
 function App() {
   const [user, setUser] = useState(null);
@@ -16,12 +21,22 @@ function App() {
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
-    // Azure Static Web Apps built-in auth
-    fetch('/.auth/me')
-      .then(res => res.json())
-      .then(data => setUser(data.clientPrincipal || DEV_USER))
-      .catch(() => setUser(DEV_USER))
+    if (!supabase) {
+      setUser(DEV_USER);
+      setLoading(false);
+      return undefined;
+    }
+
+    supabase.auth.getSession()
+      .then(({ data }) => setUser(userOf(data.session)))
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
+
+    // Keeps the UI in step with sign-in, sign-out and expiry, in any tab.
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(userOf(session));
+    });
+    return () => data.subscription.unsubscribe();
   }, []);
 
   const handleDataChanged = () => {
@@ -33,17 +48,7 @@ function App() {
   }
 
   if (!user) {
-    return (
-      <div className="login-container">
-        <div className="login-card">
-          <h1>💰 WealthWatch</h1>
-          <p>Track your finances, achieve your goals</p>
-          <a href="/.auth/login/aad" className="login-btn">
-            Sign in with Microsoft
-          </a>
-        </div>
-      </div>
-    );
+    return <Login />;
   }
 
   return (
@@ -51,8 +56,12 @@ function App() {
       <nav className="navbar">
         <h1>WealthWatch</h1>
         <div className="user-info">
-          <span>👋 {user.userDetails}</span>
-          <a href="/.auth/logout" className="logout-btn">Logout</a>
+          <span>👋 {user.email}</span>
+          {supabase && (
+            <button type="button" className="logout-btn" onClick={() => supabase.auth.signOut()}>
+              Logout
+            </button>
+          )}
         </div>
       </nav>
       <div className="container">

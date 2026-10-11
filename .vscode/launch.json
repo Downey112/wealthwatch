@@ -2,14 +2,12 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Attach to Python Functions",
+            "name": "WealthWatch API",
             "type": "debugpy",
-            "request": "attach",
-            "connect": {
-                "host": "localhost",
-                "port": 9091
-            },
-            "preLaunchTask": "func: host start"
+            "request": "launch",
+            "module": "uvicorn",
+            "args": ["main:app", "--reload", "--port", "8000", "--env-file", ".env"],
+            "cwd": "${workspaceFolder}/backend"
         }
     ]
 }
