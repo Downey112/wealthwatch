@@ -1,16 +1,25 @@
-import azure.functions as func
-import base64
-import json
 import logging
 import os
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from typing import Any, Optional
 
+from fastapi import Body, Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
+
+import auth
 import db
 
-app = func.FunctionApp(http_auth_level=func.AuthLevel.ANONYMOUS)
+app = FastAPI(
+    title="WealthWatch API",
+    docs_url="/api/docs",
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+)
 
-MAX_AMOUNT = Decimal("99999999.99")  # transactions.amount is DECIMAL(10,2)
+MAX_AMOUNT = Decimal("99999999.99")  # transactions.amount is NUMERIC(10,2)
 TRANSACTION_TYPES = ("income", "expense")
 DEFAULT_LIMIT = 50
 MAX_LIMIT = 500
@@ -23,46 +32,54 @@ class ApiError(Exception):
         self.status_code = status_code
 
 
-def json_response(body, status_code=200):
-    return func.HttpResponse(
-        json.dumps(body), status_code=status_code, mimetype="application/json"
-    )
+@app.exception_handler(ApiError)
+def api_error(request, exc):
+    return JSONResponse({"error": exc.message}, exc.status_code)
 
 
-def get_user_email(req):
-    """Identify the caller from the headers Azure Static Web Apps injects.
+@app.exception_handler(HTTPException)
+def http_error(request, exc):
+    return JSONResponse({"error": exc.detail}, exc.status_code)
 
-    These headers are only trustworthy when the Function App is reachable
-    solely through Static Web Apps (a linked backend). DEV_USER_EMAIL is a
-    local-development fallback and must not be set in production.
+
+@app.exception_handler(RequestValidationError)
+def invalid_request(request, exc):
+    return JSONResponse({"error": "Request body must be valid JSON"}, 400)
+
+
+@app.exception_handler(Exception)
+def unhandled_error(request, exc):
+    logging.exception("Unhandled error in %s %s", request.method, request.url.path)
+    return JSONResponse({"error": "Internal server error"}, 500)
+
+
+def get_user_email(request: Request):
+    """Identify the caller from their Supabase access token.
+
+    DEV_USER_EMAIL is a local-development fallback for requests that carry no
+    token. It is ignored on Vercel so it can never open up a deployment.
     """
-    principal = req.headers.get("x-ms-client-principal")
-    if principal:
+    scheme, _, token = (request.headers.get("authorization") or "").partition(" ")
+    if scheme.lower() == "bearer" and token.strip():
         try:
-            details = json.loads(base64.b64decode(principal)).get("userDetails")
-        except (ValueError, AttributeError):
-            details = None
-        if details:
-            return details
+            return auth.email_from_token(token.strip())
+        except auth.AuthError as e:
+            logging.info("Rejected access token: %s", e)
+            raise ApiError("Sign in required", 401)
 
-    email = req.headers.get("x-ms-client-principal-name") or os.environ.get("DEV_USER_EMAIL")
+    email = None if os.environ.get("VERCEL") else os.environ.get("DEV_USER_EMAIL")
     if not email:
         raise ApiError("Sign in required", 401)
     return email
 
 
-def run(req, handler):
-    """Open a connection, resolve the user, and turn failures into JSON errors."""
-    try:
-        email = get_user_email(req)
-        with db.connect() as database:
-            user_id = db.get_or_create_user(database, email)
-            return handler(req, database, user_id)
-    except ApiError as e:
-        return json_response({"error": e.message}, e.status_code)
-    except Exception:
-        logging.exception("Unhandled error in %s", handler.__name__)
-        return json_response({"error": "Internal server error"}, 500)
+def get_database():
+    with db.connect() as database:
+        yield database
+
+
+def get_user_id(email: str = Depends(get_user_email), database=Depends(get_database)):
+    return db.get_or_create_user(database, email)
 
 
 def parse_int(value, name, minimum, maximum):
@@ -82,9 +99,7 @@ def month_range(year, month):
     return start.isoformat(), end.isoformat()
 
 
-def parse_period(req, required):
-    year = req.params.get("year")
-    month = req.params.get("month")
+def parse_period(year, month, required):
     if not year and not month and not required:
         return None
     today = date.today()
@@ -131,24 +146,37 @@ def parse_transaction(body):
     }
 
 
-def add_transaction_handler(req, database, user_id):
-    try:
-        body = req.get_json()
-    except ValueError:
-        raise ApiError("Request body must be valid JSON")
+@app.get("/api/health")
+def health(database=Depends(get_database)):
+    database.execute("SELECT 1").fetchone()
+    return {"status": "ok"}
 
+
+@app.post("/api/addtransaction", status_code=201)
+def add_transaction(
+    body: Any = Body(default=None),
+    user_id: int = Depends(get_user_id),
+    database=Depends(get_database),
+):
     transaction = parse_transaction(body)
     transaction_id = database.insert(
         "transactions", "transaction_id", {"user_id": user_id, **transaction}
     )
     database.commit()
-    return json_response({"transaction_id": transaction_id, "message": "Transaction added"}, 201)
+    return {"transaction_id": transaction_id, "message": "Transaction added"}
 
 
-def get_transactions_handler(req, database, user_id):
+@app.get("/api/gettransactions")
+def get_transactions(
+    year: Optional[str] = None,
+    month: Optional[str] = None,
+    limit: Optional[str] = None,
+    user_id: int = Depends(get_user_id),
+    database=Depends(get_database),
+):
     columns = "transaction_id, amount, type, category, description, transaction_date"
     order = "ORDER BY transaction_date DESC, transaction_id DESC"
-    period = parse_period(req, required=False)
+    period = parse_period(year, month, required=False)
 
     if period:
         start, end = month_range(*period)
@@ -158,14 +186,13 @@ def get_transactions_handler(req, database, user_id):
             (user_id, start, end),
         )
     else:
-        limit = parse_int(req.params.get("limit", DEFAULT_LIMIT), "limit", 1, MAX_LIMIT)
+        row_limit = parse_int(DEFAULT_LIMIT if limit is None else limit, "limit", 1, MAX_LIMIT)
         cursor = database.execute(
-            f"SELECT {columns} FROM transactions WHERE user_id = %s {order} "
-            f"{database.limit_clause}",
-            (user_id, limit),
+            f"SELECT {columns} FROM transactions WHERE user_id = %s {order} LIMIT %s",
+            (user_id, row_limit),
         )
 
-    return json_response([
+    return [
         {
             "id": row[0],
             "amount": float(row[1]),
@@ -175,11 +202,17 @@ def get_transactions_handler(req, database, user_id):
             "date": str(row[5])[:10],
         }
         for row in cursor.fetchall()
-    ])
+    ]
 
 
-def get_summary_handler(req, database, user_id):
-    year, month = parse_period(req, required=True)
+@app.get("/api/getsummary")
+def get_summary(
+    year: Optional[str] = None,
+    month: Optional[str] = None,
+    user_id: int = Depends(get_user_id),
+    database=Depends(get_database),
+):
+    year, month = parse_period(year, month, required=True)
     start, end = month_range(year, month)
     in_month = "user_id = %s AND transaction_date >= %s AND transaction_date < %s"
 
@@ -207,7 +240,7 @@ def get_summary_handler(req, database, user_id):
         (user_id, start, end),
     ).fetchall()
 
-    return json_response({
+    return {
         "year": year,
         "month": month,
         "total_income": round(income, 2),
@@ -216,11 +249,16 @@ def get_summary_handler(req, database, user_id):
         "categories": [
             {"category": row[0], "total": round(float(row[1]), 2)} for row in categories
         ],
-    })
+    }
 
 
-def delete_transaction_handler(req, database, user_id):
-    transaction_id = parse_int(req.route_params.get("id"), "id", 1, 2**31 - 1)
+@app.delete("/api/deletetransaction/{id}")
+def delete_transaction(
+    id: str,
+    user_id: int = Depends(get_user_id),
+    database=Depends(get_database),
+):
+    transaction_id = parse_int(id, "id", 1, 2**31 - 1)
     cursor = database.execute(
         "DELETE FROM transactions WHERE transaction_id = %s AND user_id = %s",
         (transaction_id, user_id),
@@ -229,24 +267,4 @@ def delete_transaction_handler(req, database, user_id):
     database.commit()
     if not deleted:
         raise ApiError("Transaction not found", 404)
-    return json_response({"message": "Transaction deleted"})
-
-
-@app.route(route="addtransaction", methods=["POST"])
-def add_transaction(req: func.HttpRequest) -> func.HttpResponse:
-    return run(req, add_transaction_handler)
-
-
-@app.route(route="gettransactions", methods=["GET"])
-def get_transactions(req: func.HttpRequest) -> func.HttpResponse:
-    return run(req, get_transactions_handler)
-
-
-@app.route(route="getsummary", methods=["GET"])
-def get_summary(req: func.HttpRequest) -> func.HttpResponse:
-    return run(req, get_summary_handler)
-
-
-@app.route(route="deletetransaction/{id}", methods=["DELETE"])
-def delete_transaction(req: func.HttpRequest) -> func.HttpResponse:
-    return run(req, delete_transaction_handler)
+    return {"message": "Transaction deleted"}

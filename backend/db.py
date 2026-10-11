@@ -1,9 +1,8 @@
 """Database access for WealthWatch.
 
-Uses Azure SQL / SQL Server (via pymssql) when DB_SERVER is set, and a local
-SQLite file otherwise so the API runs on a laptop with no cloud resources.
+Uses Postgres (via psycopg) when DATABASE_URL is set, and a local SQLite file
+otherwise so the API runs on a laptop with no cloud resources.
 """
-import logging
 import os
 import sqlite3
 from decimal import Decimal
@@ -38,13 +37,6 @@ class Database:
         self.conn = conn
         self.engine = engine
 
-    @property
-    def limit_clause(self):
-        """Row-limit clause to append after ORDER BY; takes one parameter."""
-        if self.engine == "mssql":
-            return "OFFSET 0 ROWS FETCH NEXT %s ROWS ONLY"
-        return "LIMIT %s"
-
     def execute(self, sql, params=()):
         if self.engine == "sqlite":
             sql = sql.replace("%s", "?")
@@ -59,17 +51,11 @@ class Database:
         """
         columns = ", ".join(values)
         placeholders = ", ".join(["%s"] * len(values))
-        if self.engine == "mssql":
-            cursor = self.execute(
-                f"INSERT INTO {table} ({columns}) OUTPUT INSERTED.{id_column} "
-                f"VALUES ({placeholders})",
-                values.values(),
-            )
+        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        if self.engine == "postgres":
+            cursor = self.execute(f"{sql} RETURNING {id_column}", values.values())
             return int(cursor.fetchone()[0])
-        cursor = self.execute(
-            f"INSERT INTO {table} ({columns}) VALUES ({placeholders})", values.values()
-        )
-        return int(cursor.lastrowid)
+        return int(self.execute(sql, values.values()).lastrowid)
 
     def commit(self):
         self.conn.commit()
@@ -91,24 +77,22 @@ class Database:
 
 
 def connect():
-    server = os.environ.get("DB_SERVER")
-    if server:
-        import pymssql  # imported lazily so local SQLite runs do not need it
+    url = os.environ.get("DATABASE_URL")
+    if url:
+        import psycopg  # imported lazily so local SQLite runs do not need it
 
-        logging.info("Connecting to SQL Server %s", server)
-        conn = pymssql.connect(
-            server=server,
-            database=os.environ.get("DB_NAME"),
-            user=os.environ.get("DB_USER"),
-            password=os.environ.get("DB_PASSWORD"),
-            autocommit=False,
-        )
-        return Database(conn, "mssql")
+        # prepare_threshold=None: Supabase's transaction pooler hands each
+        # transaction to a different server connection, which breaks
+        # server-side prepared statements.
+        conn = psycopg.connect(url, prepare_threshold=None, connect_timeout=10)
+        return Database(conn, "postgres")
 
     path = os.environ.get("SQLITE_PATH") or os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "wealthwatch.db"
     )
-    conn = sqlite3.connect(path)
+    # FastAPI runs the request's dependencies and handler on different
+    # threads; the connection is still only used by one request at a time.
+    conn = sqlite3.connect(path, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(SQLITE_SCHEMA)
     return Database(conn, "sqlite")

@@ -1,0 +1,4 @@
+# Runtime dependencies of the API. Vercel installs these for api/index.py.
+fastapi>=0.115,<1
+psycopg[binary]>=3.2,<4
+PyJWT[crypto]>=2.9,<3
