@@ -1,9 +1,0 @@
-{
-    "azureFunctions.deploySubpath": "backend",
-    "azureFunctions.scmDoBuildDuringDeployment": true,
-    "azureFunctions.projectLanguage": "Python",
-    "azureFunctions.projectLanguageModel": 2,
-    "azureFunctions.projectRuntime": "~4",
-    "azureFunctions.pythonVenv": ".venv",
-    "debug.internalConsoleOptions": "neverOpen"
-}

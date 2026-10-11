@@ -1,2 +1,5 @@
-azure-functions
+-r ../requirements.txt
+uvicorn
+python-dotenv
+httpx
 pytest

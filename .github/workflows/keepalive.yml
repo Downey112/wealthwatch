@@ -1,0 +1,16 @@
+name: Keep database awake
+
+# Supabase pauses free projects after a week without activity. /api/health
+# runs a query, so calling it twice a week keeps the live site working.
+on:
+  schedule:
+    - cron: "17 3 * * 1,4"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    # Set the APP_URL repository variable to the live site, e.g. https://wealthwatch.vercel.app
+    if: vars.APP_URL != ''
+    steps:
+      - run: curl --fail --silent --show-error --max-time 60 "${{ vars.APP_URL }}/api/health"
