@@ -1,9 +1,22 @@
 import axios from 'axios';
+import { supabase } from './supabase';
 
-// Same-origin /api by default: Azure Static Web Apps proxies it to the backend
-// in production, and the CRA dev server proxies it to localhost:7071.
+// Same-origin /api by default: Vercel routes it to the Python function in
+// production, and the CRA dev server proxies it to localhost:8000.
 const client = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
+});
+
+// The API identifies the user from their Supabase access token. getSession
+// refreshes an expired token before returning it.
+client.interceptors.request.use(async (config) => {
+  if (supabase) {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) {
+      config.headers.Authorization = `Bearer ${data.session.access_token}`;
+    }
+  }
+  return config;
 });
 
 export const getSummary = (year, month) =>

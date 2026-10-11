@@ -1,7 +1,8 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from './App';
 import * as api from './api';
+import { supabase } from './supabase';
 import { localDateISO, yearOptions } from './utils/dates';
 
 jest.mock('./api', () => ({
@@ -17,10 +18,25 @@ jest.mock('react-chartjs-2', () => ({
   Pie: ({ data }) => <div data-testid="pie-chart">{data.labels.join(',')}</div>,
 }));
 
-const signedInAs = (clientPrincipal) => {
-  global.fetch = jest.fn(() =>
-    Promise.resolve({ json: () => Promise.resolve({ clientPrincipal }) })
-  );
+jest.mock('./supabase', () => ({
+  supabase: {
+    auth: {
+      getSession: jest.fn(),
+      onAuthStateChange: jest.fn(),
+      signInWithPassword: jest.fn(),
+      signUp: jest.fn(),
+      signOut: jest.fn(),
+    },
+  },
+}));
+
+const sessionFor = (email) => (email ? { access_token: 'token', user: { email } } : null);
+
+// The listener App registers, so tests can deliver sign-in and sign-out events.
+let authListener;
+
+const signedInAs = (email) => {
+  supabase.auth.getSession.mockResolvedValue({ data: { session: sessionFor(email) } });
 };
 
 const SUMMARY = {
@@ -38,17 +54,86 @@ beforeEach(() => {
   jest.clearAllMocks();
   api.getSummary.mockResolvedValue(SUMMARY);
   api.getTransactions.mockResolvedValue([LUNCH]);
+  supabase.auth.onAuthStateChange.mockImplementation((listener) => {
+    authListener = listener;
+    return { data: { subscription: { unsubscribe: jest.fn() } } };
+  });
 });
 
 test('asks signed-out visitors to sign in', async () => {
   signedInAs(null);
   render(<App />);
-  expect(await screen.findByText(/sign in with microsoft/i)).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   expect(api.getSummary).not.toHaveBeenCalled();
 });
 
+test('signing in with email and password opens the dashboard', async () => {
+  signedInAs(null);
+  supabase.auth.signInWithPassword.mockImplementation(async ({ email }) => {
+    act(() => authListener('SIGNED_IN', sessionFor(email)));
+    return { data: { session: sessionFor(email) }, error: null };
+  });
+  render(<App />);
+
+  userEvent.type(await screen.findByLabelText('Email'), 'alice@example.com');
+  userEvent.type(screen.getByLabelText('Password'), 'correct horse');
+  userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+  expect(await screen.findByText('RM 3000.00')).toBeInTheDocument();
+  expect(supabase.auth.signInWithPassword).toHaveBeenCalledWith({
+    email: 'alice@example.com',
+    password: 'correct horse',
+  });
+});
+
+test('shows why a sign-in was rejected', async () => {
+  signedInAs(null);
+  supabase.auth.signInWithPassword.mockResolvedValue({
+    data: { session: null },
+    error: { message: 'Invalid login credentials' },
+  });
+  render(<App />);
+
+  userEvent.type(await screen.findByLabelText('Email'), 'alice@example.com');
+  userEvent.type(screen.getByLabelText('Password'), 'wrong password');
+  userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+  expect(await screen.findByText('Invalid login credentials')).toBeInTheDocument();
+  expect(api.getSummary).not.toHaveBeenCalled();
+});
+
+test('creating an account that needs confirming says to check email', async () => {
+  signedInAs(null);
+  supabase.auth.signUp.mockResolvedValue({ data: { session: null }, error: null });
+  render(<App />);
+
+  userEvent.click(await screen.findByRole('button', { name: 'Create an account' }));
+  userEvent.type(screen.getByLabelText('Email'), 'new@example.com');
+  userEvent.type(screen.getByLabelText('Password'), 'correct horse');
+  userEvent.click(screen.getByRole('button', { name: 'Create account' }));
+
+  expect(await screen.findByText(/check your email/i)).toBeInTheDocument();
+  expect(supabase.auth.signUp).toHaveBeenCalledWith({
+    email: 'new@example.com',
+    password: 'correct horse',
+  });
+});
+
+test('logging out returns to the sign-in page', async () => {
+  signedInAs('alice@example.com');
+  supabase.auth.signOut.mockImplementation(async () => {
+    act(() => authListener('SIGNED_OUT', null));
+    return { error: null };
+  });
+  render(<App />);
+
+  userEvent.click(await screen.findByRole('button', { name: 'Logout' }));
+
+  expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+});
+
 test('shows the summary, chart and transactions for a signed-in user', async () => {
-  signedInAs({ userDetails: 'alice@example.com' });
+  signedInAs('alice@example.com');
   render(<App />);
 
   expect(await screen.findByText(/alice@example.com/)).toBeInTheDocument();
@@ -63,7 +148,7 @@ test('shows the summary, chart and transactions for a signed-in user', async () 
 });
 
 test('adding a transaction posts it and reloads the data', async () => {
-  signedInAs({ userDetails: 'alice@example.com' });
+  signedInAs('alice@example.com');
   api.addTransaction.mockResolvedValue({ transaction_id: 8 });
   render(<App />);
   await screen.findByText('RM 3000.00');
@@ -84,7 +169,7 @@ test('adding a transaction posts it and reloads the data', async () => {
 });
 
 test('shows the API error when adding a transaction fails', async () => {
-  signedInAs({ userDetails: 'alice@example.com' });
+  signedInAs('alice@example.com');
   api.addTransaction.mockRejectedValue({ response: { data: { error: 'amount must be a number' } } });
   render(<App />);
   await screen.findByText('RM 3000.00');
@@ -96,7 +181,7 @@ test('shows the API error when adding a transaction fails', async () => {
 });
 
 test('deleting a transaction reloads the list and the summary', async () => {
-  signedInAs({ userDetails: 'alice@example.com' });
+  signedInAs('alice@example.com');
   api.deleteTransaction.mockResolvedValue({});
   jest.spyOn(window, 'confirm').mockReturnValue(true);
   render(<App />);
@@ -108,7 +193,7 @@ test('deleting a transaction reloads the list and the summary', async () => {
 });
 
 test('keeps the period selectors usable when the summary fails to load', async () => {
-  signedInAs({ userDetails: 'alice@example.com' });
+  signedInAs('alice@example.com');
   api.getSummary.mockRejectedValue(new Error('network'));
   render(<App />);
 

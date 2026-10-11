@@ -5,40 +5,40 @@
 A personal finance dashboard: record income and expenses, see monthly totals and net
 savings, and view spending by category.
 
-- **Frontend** - React 19 (Create React App), Chart.js, hosted on Azure Static Web Apps
-- **Backend** - Python Azure Functions (v2 programming model)
-- **Database** - Azure SQL in the cloud, SQLite on your machine
-- **Auth** - Azure Static Web Apps built-in authentication (Microsoft sign-in)
+- **Frontend** - React 19 (Create React App), Chart.js, hosted on Vercel
+- **Backend** - Python FastAPI, running as a Vercel serverless function
+- **Database** - Supabase Postgres in the cloud, SQLite on your machine
+- **Auth** - Supabase Auth (email and password); the API verifies each request's JWT
 
-> The original Azure deployment has been taken down, so there is no live demo. The app
-> runs fully on a local machine with no cloud account.
+Everything runs on the free tiers of Vercel and Supabase, and fully on a local machine
+with no cloud account.
 
 ## Project layout
 
 ```
 frontend/   React app
-backend/    Azure Functions API (function_app.py, db.py, tests/)
-database/   schema.sql for Azure SQL / SQL Server
-.github/    CI workflow and the (manual) Static Web Apps deploy workflow
+backend/    FastAPI app (main.py, auth.py, db.py, tests/)
+api/        Vercel entry point that serves backend/ as one function
+supabase/   Supabase project config and database migrations
+.github/    CI and the database keep-alive workflow
 ```
 
 ## Run it locally
 
-You need Node.js 20+, Python 3.11+ and
-[Azure Functions Core Tools v4](https://learn.microsoft.com/azure/azure-functions/functions-run-local).
+You need Node.js 20+ and Python 3.11+.
 
-**1. Backend** (http://localhost:7071)
+**1. Backend** (http://localhost:8000, interactive docs at `/api/docs`)
 
 ```bash
 cd backend
 python -m venv .venv
 .venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
-copy local.settings.example.json local.settings.json   # macOS/Linux: cp
-func start
+copy .env.example .env            # macOS/Linux: cp
+uvicorn main:app --reload --port 8000 --env-file .env
 ```
 
-With no `DB_SERVER` setting the API stores data in `backend/wealthwatch.db` (SQLite) and
+With no `DATABASE_URL` the API stores data in `backend/wealthwatch.db` (SQLite) and
 creates the tables itself.
 
 **2. Frontend** (http://localhost:3000)
@@ -49,7 +49,8 @@ npm install
 npm start
 ```
 
-The dev server proxies `/api` to the backend, and you are signed in as `dev@localhost`.
+The dev server proxies `/api` to the backend, and with no Supabase settings you are
+signed in as `dev@localhost`.
 
 ## Tests
 
@@ -61,6 +62,7 @@ cd frontend && npm test -- --watchAll=false
 ## API
 
 All routes are under `/api` and return JSON. Errors look like `{"error": "message"}`.
+Every route except `/health` needs `Authorization: Bearer <Supabase access token>`.
 
 | Method | Route | Purpose |
 |---|---|---|
@@ -68,37 +70,49 @@ All routes are under `/api` and return JSON. Errors look like `{"error": "messag
 | `GET` | `/gettransactions?year=&month=` | Transactions for a month, newest first. Without a period, the latest `limit` (default 50) |
 | `GET` | `/getsummary?year=&month=` | Income, expense, net savings and expense totals by category. Defaults to the current month |
 | `DELETE` | `/deletetransaction/{id}` | Delete one of your own transactions |
+| `GET` | `/health` | Checks the database connection. No sign-in needed |
 
 ## Configuration
 
-Backend settings (`backend/local.settings.json` locally, Function App settings in Azure):
+Backend (`backend/.env` locally, Vercel environment variables in production):
 
 | Setting | Purpose |
 |---|---|
-| `DB_SERVER`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Azure SQL / SQL Server connection. Leave `DB_SERVER` unset to use SQLite |
+| `DATABASE_URL` | Postgres connection string. Use Supabase's **transaction pooler** string (port 6543). Leave unset to use SQLite |
+| `SUPABASE_URL` | `https://<project-ref>.supabase.co`. Access tokens are verified against this project's signing keys |
+| `SUPABASE_JWT_SECRET` | Only for older Supabase projects that still sign tokens with the shared secret |
 | `SQLITE_PATH` | Optional path for the SQLite file |
-| `DEV_USER_EMAIL` | Local development only: the user to act as when a request carries no identity. Never set this in Azure |
+| `DEV_USER_EMAIL` | Local development only: the user to act as when a request carries no token. Ignored on Vercel |
 
-Frontend: `REACT_APP_API_URL` overrides the API base URL (default `/api`). See
-`frontend/.env.example`.
+Frontend (build-time, see `frontend/.env.example`):
 
-## Deploying to Azure
+| Setting | Purpose |
+|---|---|
+| `REACT_APP_SUPABASE_URL` | Same value as `SUPABASE_URL` |
+| `REACT_APP_SUPABASE_ANON_KEY` | The project's anon / publishable key. Safe to ship in the browser |
+| `REACT_APP_API_URL` | Optional API base URL (default `/api`) |
 
-1. Create an Azure SQL database and run `database/schema.sql` against it.
-2. Create a Python Function App, set the four `DB_*` settings and deploy `backend/`
-   (`func azure functionapp publish <app-name>`).
-3. Create a Static Web App from this repository with app location `frontend` and output
-   location `build`, then **link the Function App as its backend** so `/api` is served
-   through Static Web Apps.
-4. Store the new deployment token as a repository secret, update the secret name in
-   `.github/workflows/azure-static-web-apps-*.yml`, and restore that workflow's `push`
-   trigger (it is manual-only while there is nothing to deploy to).
+## Deploying
 
-### Why the backend must be linked
+1. **Supabase** - create a project, then from the repository root:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <project-ref>
+   npx supabase db push          # creates the tables
+   npx supabase config push      # applies the auth settings in supabase/config.toml
+   ```
+   Set `site_url` in `supabase/config.toml` to the live site's URL first.
+2. **Vercel** - import the repository (or run `npx vercel` in it). `vercel.json` builds
+   the frontend and routes `/api/*` to the Python function. Add the environment
+   variables from the tables above, then deploy.
+3. **Keep-alive** - Supabase pauses free projects after a week without activity. Set the
+   `APP_URL` repository variable to the live URL and `.github/workflows/keepalive.yml`
+   pings `/api/health` twice a week.
 
-The API trusts the identity headers that Static Web Apps adds to each request. That is
-only safe when the Function App cannot be called directly. Linking it as the Static Web
-App's backend restricts access to the Static Web App; `staticwebapp.config.json` then
-requires a signed-in user for every `/api` route. Pointing the frontend straight at a
-public Function App URL with `REACT_APP_API_URL` bypasses this and is not suitable for
-real data.
+### How the data is protected
+
+The browser only ever holds the Supabase anon key and the signed-in user's own access
+token. The API checks that token's signature, expiry, audience and issuer on every
+request and scopes every query to that user. The tables have row level security enabled
+with no policies, so they cannot be read through Supabase's public REST API - only
+through this API.
