@@ -14,7 +14,7 @@ A modern, full-stack personal finance tracker and analytical dashboard: record i
 
 ## 🏗️ Architecture & Tech Stack
 
-* **Frontend:** React 19 (Create React App), Chart.js data visualizations, hosted on Vercel.
+* **Frontend:** React 19 (Vite), Chart.js data visualizations, hosted on Vercel.
 * **Backend:** Python FastAPI, running as serverless functions on Vercel (`api/index.py`).
 * **Database & Governance:** Supabase PostgreSQL in the cloud (with Row Level Security), SQLite fallback for offline local execution.
 * **Authentication:** Supabase Auth (Email & Password) with cryptographically validated JWT bearer tokens on all sensitive API endpoints.
@@ -66,8 +66,8 @@ npm start
 # Run backend test suite (FastAPI TestClient + SQLite in-memory)
 cd backend && python -m pytest tests
 
-# Run frontend React tests
-cd frontend && npm test -- --watchAll=false
+# Run frontend React tests (Vitest)
+cd frontend && npm test
 ```
 
 ---

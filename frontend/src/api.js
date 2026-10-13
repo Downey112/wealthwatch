@@ -2,9 +2,9 @@ import axios from 'axios';
 import { supabase } from './supabase';
 
 // Same-origin /api by default: Vercel routes it to the Python function in
-// production, and the CRA dev server proxies it to localhost:8000.
+// production, and the Vite dev server proxies it to localhost:8000.
 const client = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '/api',
+  baseURL: import.meta.env.REACT_APP_API_URL || '/api',
 });
 
 // The API identifies the user from their Supabase access token. getSession
