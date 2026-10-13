@@ -1,31 +1,32 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { vi } from 'vitest';
 import App from './App';
 import * as api from './api';
 import { supabase } from './supabase';
 import { localDateISO, yearOptions } from './utils/dates';
 
-jest.mock('./api', () => ({
-  getSummary: jest.fn(),
-  getTransactions: jest.fn(),
-  addTransaction: jest.fn(),
-  deleteTransaction: jest.fn(),
+vi.mock('./api', () => ({
+  getSummary: vi.fn(),
+  getTransactions: vi.fn(),
+  addTransaction: vi.fn(),
+  deleteTransaction: vi.fn(),
   errorMessage: (error, fallback) => error?.response?.data?.error || fallback,
 }));
 
 // Chart.js needs a real canvas, which jsdom does not provide.
-jest.mock('react-chartjs-2', () => ({
+vi.mock('react-chartjs-2', () => ({
   Pie: ({ data }) => <div data-testid="pie-chart">{data.labels.join(',')}</div>,
 }));
 
-jest.mock('./supabase', () => ({
+vi.mock('./supabase', () => ({
   supabase: {
     auth: {
-      getSession: jest.fn(),
-      onAuthStateChange: jest.fn(),
-      signInWithPassword: jest.fn(),
-      signUp: jest.fn(),
-      signOut: jest.fn(),
+      getSession: vi.fn(),
+      onAuthStateChange: vi.fn(),
+      signInWithPassword: vi.fn(),
+      signUp: vi.fn(),
+      signOut: vi.fn(),
     },
   },
 }));
@@ -51,12 +52,12 @@ const LUNCH = {
 };
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  vi.clearAllMocks();
   api.getSummary.mockResolvedValue(SUMMARY);
   api.getTransactions.mockResolvedValue([LUNCH]);
   supabase.auth.onAuthStateChange.mockImplementation((listener) => {
     authListener = listener;
-    return { data: { subscription: { unsubscribe: jest.fn() } } };
+    return { data: { subscription: { unsubscribe: vi.fn() } } };
   });
 });
 
@@ -183,7 +184,7 @@ test('shows the API error when adding a transaction fails', async () => {
 test('deleting a transaction reloads the list and the summary', async () => {
   signedInAs('alice@example.com');
   api.deleteTransaction.mockResolvedValue({});
-  jest.spyOn(window, 'confirm').mockReturnValue(true);
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
   render(<App />);
 
   userEvent.click(await screen.findByRole('button', { name: /delete food transaction/i }));
