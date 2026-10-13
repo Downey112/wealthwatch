@@ -9,7 +9,7 @@ import './App.css';
 // Without Supabase settings `npm start` has nothing to sign in to, so local
 // development signs in as this user. The backend uses DEV_USER_EMAIL for the
 // same purpose.
-const DEV_USER = process.env.NODE_ENV === 'development'
+const DEV_USER = import.meta.env.MODE === 'development'
   ? { email: 'dev@localhost' }
   : null;
 
