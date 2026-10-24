@@ -148,7 +148,9 @@ def parse_transaction(body):
 
 @app.get("/api/health")
 def health(database=Depends(get_database)):
-    database.execute("SELECT 1").fetchone()
+    # Reads a real table: Supabase counts table queries as activity, so the
+    # keepalive workflow's calls stop the free project from pausing.
+    database.execute("SELECT 1 FROM users LIMIT 1").fetchone()
     return {"status": "ok"}
 
 
