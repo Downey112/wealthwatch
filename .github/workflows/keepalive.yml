@@ -1,10 +1,11 @@
 name: Keep database awake
 
-# Supabase pauses free projects after a week without activity. /api/health
-# runs a query, so calling it twice a week keeps the live site working.
+# Supabase pauses free projects with too little database activity over a week
+# ("a few user requests to the database each day"). /api/health reads the
+# users table, so calling it daily keeps the live site working.
 on:
   schedule:
-    - cron: "17 3 * * 1,4"
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 jobs:
