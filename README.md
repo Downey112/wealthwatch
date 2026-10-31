@@ -89,3 +89,9 @@ All routes are nested under `/api` and return standardized JSON payloads. Every 
 ## 🔒 Security & Data Protection
 
 The client browser only holds the public Supabase anon key and the authenticated user's access token. The FastAPI backend verifies the cryptographic JWT signature, audience, and expiration before scoping queries strictly to the caller's UUID. Tables have Row Level Security enabled to prevent unauthorized REST exposure.
+
+---
+
+## 📄 License
+
+Released under the [MIT License](LICENSE).
